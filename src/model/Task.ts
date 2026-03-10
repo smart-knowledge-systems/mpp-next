@@ -25,5 +25,15 @@ export interface Task {
   baselineFinish: Date | null;
   baselineDuration: Duration | null;
   constraintType: ConstraintType | null;
+  // Scheduling analysis
+  freeSlack: Duration | null;
+  totalSlack: Duration | null;
+  earlyStart: Date | null;
+  earlyFinish: Date | null;
+  lateStart: Date | null;
+  lateFinish: Date | null;
+  levelingDelay: Duration | null;
+  deadline: Date | null;
+  splits: Date[] | null;
   predecessors: Relation[];
 }
