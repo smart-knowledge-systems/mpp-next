@@ -227,6 +227,7 @@ export class Mpp14Reader {
             priority: null,
             cost: null,
             work: null,
+            actualWork: null,
             actualStart: null,
             actualFinish: null,
             baselineStart: null,
@@ -252,6 +253,14 @@ export class Mpp14Reader {
       const uniqueId = MppUtility.getInt(data, 4);
       const durationTenths = safeInt(data, 88);
 
+      // Read scheduling fields from FixedData using FieldMap14 offsets
+      const freeSlackTenths = safeInt(data, 24);
+      const startSlackTenths = safeInt(data, 28);
+      const finishSlackTenths = safeInt(data, 32);
+      const totalSlackTenths = computeTotalSlack(startSlackTenths, finishSlackTenths);
+      const levelingDelayTenths = safeInt(data, 58);
+      const actualWorkRaw = safeDouble(data, 134);
+
       records.push({
         rawUniqueId,
         parentRawUniqueId: normalizeParent(safeInt(data, 142)),
@@ -276,20 +285,24 @@ export class Mpp14Reader {
           priority: safeShort(data, 78),
           cost: 0,
           work: Duration.from(0, TimeUnit.Hours),
+          actualWork: workFromDouble(actualWorkRaw),
           actualStart: null,
           actualFinish: null,
           baselineStart: null,
           baselineFinish: null,
           baselineDuration: null,
           constraintType: null,
-          freeSlack: null,
-          totalSlack: null,
-          earlyStart: null,
-          earlyFinish: null,
-          lateStart: null,
-          lateFinish: null,
-          levelingDelay: null,
-          deadline: null,
+          freeSlack: MppUtility.durationFromTenthsOfMinutes(freeSlackTenths, TimeUnit.Minutes),
+          totalSlack: MppUtility.durationFromTenthsOfMinutes(totalSlackTenths, TimeUnit.Minutes),
+          earlyStart: MppUtility.getTimestampValue(data, 106),
+          earlyFinish: MppUtility.getTimestampValue(data, 8),
+          lateStart: MppUtility.getTimestampValue(data, 12),
+          lateFinish: MppUtility.getTimestampValue(data, 110),
+          levelingDelay: MppUtility.durationFromTenthsOfMinutes(
+            levelingDelayTenths,
+            TimeUnit.Minutes,
+          ),
+          deadline: MppUtility.getTimestampValue(data, 122),
           splits: null,
           predecessors: [],
         },
@@ -447,6 +460,8 @@ export class Mpp14Reader {
 
       const start = MppUtility.getTimestampValue(data, 52);
       const finish = MppUtility.getTimestampValue(data, 56);
+      const assignmentActualWorkRaw = safeDouble(data, 62);
+      const assignmentRemainingWorkRaw = safeDouble(data, 78);
       assignments.push({
         taskUniqueId,
         resourceUniqueId: normalizeResourceId(MppUtility.getInt(data, 8)),
@@ -454,8 +469,8 @@ export class Mpp14Reader {
         units: 100,
         start,
         finish,
-        actualWork: null,
-        remainingWork: null,
+        actualWork: workFromDouble(assignmentActualWorkRaw),
+        remainingWork: workFromDouble(assignmentRemainingWorkRaw),
       });
     }
 
@@ -668,6 +683,43 @@ function safeShort(buffer: Uint8Array, offset: number): number | null {
 
 function safeInt(buffer: Uint8Array, offset: number): number | null {
   return offset + 4 <= buffer.length ? MppUtility.getInt(buffer, offset) : null;
+}
+
+function safeDouble(buffer: Uint8Array, offset: number): number | null {
+  return offset + 8 <= buffer.length ? MppUtility.getDouble(buffer, offset) : null;
+}
+
+/**
+ * Convert a raw work value (stored as 8-byte double in MPP) to a Duration in hours.
+ * The stored value is in 1/60000ths of an hour (i.e., milliseconds of work).
+ * Values with absolute magnitude less than 1000 are treated as zero.
+ */
+function workFromDouble(raw: number | null): Duration | null {
+  if (raw === null) {
+    return null;
+  }
+  const value = Math.abs(raw) < 1000 ? 0 : raw / 60000;
+  return Duration.from(value, TimeUnit.Hours);
+}
+
+/**
+ * Compute total slack as the minimum of start slack and finish slack,
+ * matching MPXJ's behavior where total slack is derived from these two values.
+ */
+function computeTotalSlack(
+  startSlackTenths: number | null,
+  finishSlackTenths: number | null,
+): number | null {
+  if (startSlackTenths === null && finishSlackTenths === null) {
+    return null;
+  }
+  if (startSlackTenths === null) {
+    return finishSlackTenths;
+  }
+  if (finishSlackTenths === null) {
+    return startSlackTenths;
+  }
+  return Math.min(startSlackTenths, finishSlackTenths);
 }
 
 function elapsedHoursDuration(start: Date | null, finish: Date | null): Duration | null {
