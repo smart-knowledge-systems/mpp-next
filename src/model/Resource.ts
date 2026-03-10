@@ -11,4 +11,5 @@ export interface Resource {
   maxUnits: number | null;
   cost: number | null;
   work: Duration | null;
+  resourcePool: string | null;
 }
