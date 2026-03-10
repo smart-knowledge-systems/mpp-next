@@ -11,7 +11,7 @@ bun install
 ## Usage
 
 ```ts
-import { readMpp, readMspdi, writeMspdi, writeJson } from "mpp-next";
+import { readMpp, readMspdi, readJson, writeMspdi, writeJson } from "mpp-next";
 
 // Read a binary MPP file (MPP14+ / Microsoft Project 2010+)
 const project = await readMpp("schedule.mpp");
@@ -19,13 +19,34 @@ const project = await readMpp("schedule.mpp");
 // Read MSPDI XML
 const project2 = readMspdi(xmlString);
 
-// Write MSPDI XML
-const xml = writeMspdi(project);
-
-// Export to JSON
+// Read/write JSON
+const project3 = readJson(jsonString);
 const json = writeJson(project);
 const compact = writeJson(project, { pretty: false });
+
+// Write MSPDI XML
+const xml = writeMspdi(project);
 ```
+
+### Validation with Zod
+
+Validate untrusted data with the schema subpath (requires `zod` peer dependency):
+
+```ts
+import { ProjectFileSchema, TaskSchema } from "mpp-next/schema";
+
+// Validate unknown JSON from an API or file
+const result = ProjectFileSchema.safeParse(untrustedData);
+if (result.success) {
+  const project = result.data; // fully typed ProjectFile
+  // Duration fields are real Duration instances, dates are Date objects
+}
+
+// Validate individual entities
+const taskResult = TaskSchema.safeParse(someTaskData);
+```
+
+All schemas include transforms — `{ duration: 8, units: "hours" }` objects become `Duration` class instances, date strings become `Date` objects.
 
 ### Advanced API
 
@@ -36,6 +57,7 @@ import {
   MppReader,
   MspdiReader,
   MspdiWriter,
+  JsonReader,
   JsonWriter,
   loadMppContainer,
   detectMppVariant,
@@ -66,9 +88,17 @@ const project = reader.readContainer(container);
 | ------------------------------------ | ---- | ----- |
 | MPP (binary, MPP14+ / Project 2010+) | Yes  | No    |
 | MSPDI (XML)                          | Yes  | Yes   |
-| JSON                                 | No   | Yes   |
+| JSON                                 | Yes  | Yes   |
 
 Older MPP versions (8, 9, 12) are detected and produce a clear error message explaining that only MPP14+ is supported.
+
+### Subpath exports
+
+| Path                | Contents                                             |
+| ------------------- | ---------------------------------------------------- |
+| `mpp-next`          | Convenience functions (`readMpp`, `writeJson`, etc.) |
+| `mpp-next/advanced` | Reader/writer classes, container utilities           |
+| `mpp-next/schema`   | Zod validation schemas for all model types           |
 
 ## Scripts
 
@@ -88,5 +118,6 @@ Older MPP versions (8, 9, 12) are detected and produce a clear error message exp
 - **Language**: TypeScript (strict mode)
 - **Linter**: ESLint with `@typescript-eslint`
 - **Formatter**: Prettier
+- **Validation**: [Zod](https://zod.dev) (optional peer dependency)
 
 All tool caches (tsc, ESLint, Prettier) write to `node_modules/.cache/`.
