@@ -5,7 +5,8 @@
   "private": true,
   "exports": {
     ".": "./src/index.ts",
-    "./advanced": "./src/advanced.ts"
+    "./advanced": "./src/advanced.ts",
+    "./schema": "./src/schema/index.ts"
   },
   "scripts": {
     "test": "bun test",
@@ -25,7 +26,8 @@
     "prettier": "^3.8.1"
   },
   "peerDependencies": {
-    "typescript": "^5"
+    "typescript": "^5",
+    "zod": "^4.3.6"
   },
   "dependencies": {
     "cfb": "^1.2.2",
