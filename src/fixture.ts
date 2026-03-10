@@ -130,6 +130,7 @@ function mapTask(input: FixtureTask): Task {
     baselineStart: parseDate(input.baseline_start),
     baselineFinish: parseDate(input.baseline_finish),
     baselineDuration: Duration.parseSimple(input.baseline_duration),
+    actualWork: null,
     constraintType: null,
     freeSlack: null,
     totalSlack: null,

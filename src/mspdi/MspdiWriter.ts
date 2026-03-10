@@ -107,6 +107,7 @@ export class MspdiWriter {
     lines.push(tag("Finish", formatDate(task.finish), 3));
     lines.push(tag("Duration", formatXsdDuration(task.duration, durationContext), 3));
     lines.push(tag("Work", formatXsdDuration(task.work, durationContext), 3));
+    lines.push(tag("ActualWork", formatXsdDuration(task.actualWork, durationContext), 3));
     lines.push(tag("PercentComplete", nullableNumber(task.percentComplete), 3));
     lines.push(tag("Summary", formatBoolean(task.summary), 3));
     lines.push(tag("Milestone", formatBoolean(task.milestone), 3));

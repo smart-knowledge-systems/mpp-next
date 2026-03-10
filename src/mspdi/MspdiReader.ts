@@ -79,6 +79,7 @@ interface TaskNode {
   BaselineStart?: string;
   BaselineFinish?: string;
   BaselineDuration?: string;
+  ActualWork?: string;
   FreeSlack?: string;
   TotalSlack?: string;
   EarlyStart?: string;
@@ -224,6 +225,7 @@ export class MspdiReader {
       priority: parseNumber(node.Priority),
       cost: parseNumber(node.Cost),
       work: parseXsdDuration(node.Work, durationContext),
+      actualWork: parseXsdDuration(node.ActualWork, durationContext),
       actualStart: parseDate(node.ActualStart),
       actualFinish: parseDate(node.ActualFinish),
       baselineStart: parseDate(node.BaselineStart),
