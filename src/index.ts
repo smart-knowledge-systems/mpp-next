@@ -3,6 +3,7 @@
 import { MppReader } from "./mpp/MppReader.ts";
 import { MspdiReader } from "./mspdi/MspdiReader.ts";
 import { MspdiWriter } from "./mspdi/MspdiWriter.ts";
+import { JsonReader } from "./json/JsonReader.ts";
 import { JsonWriter } from "./json/JsonWriter.ts";
 import type { ProjectFile } from "./model/Project.ts";
 
@@ -16,6 +17,10 @@ export function readMspdi(xml: string): ProjectFile {
 
 export function writeMspdi(project: ProjectFile, options?: { saveVersion?: number }): string {
   return new MspdiWriter().write(project, options);
+}
+
+export function readJson(json: string): ProjectFile {
+  return new JsonReader().read(json);
 }
 
 export function writeJson(project: ProjectFile, options?: { pretty?: boolean }): string {
@@ -33,6 +38,7 @@ export type { Relation } from "./model/Relation.ts";
 
 // Classes
 export { Duration } from "./model/Duration.ts";
+export { JsonReader } from "./json/JsonReader.ts";
 export { JsonWriter } from "./json/JsonWriter.ts";
 export type { JsonWriterOptions } from "./json/JsonWriter.ts";
 
