@@ -233,6 +233,15 @@ export class Mpp14Reader {
             baselineFinish: null,
             baselineDuration: null,
             constraintType: null,
+            freeSlack: null,
+            totalSlack: null,
+            earlyStart: null,
+            earlyFinish: null,
+            lateStart: null,
+            lateFinish: null,
+            levelingDelay: null,
+            deadline: null,
+            splits: null,
             predecessors: [],
           },
         });
@@ -273,6 +282,15 @@ export class Mpp14Reader {
           baselineFinish: null,
           baselineDuration: null,
           constraintType: null,
+          freeSlack: null,
+          totalSlack: null,
+          earlyStart: null,
+          earlyFinish: null,
+          lateStart: null,
+          lateFinish: null,
+          levelingDelay: null,
+          deadline: null,
+          splits: null,
           predecessors: [],
         },
       });
@@ -310,6 +328,7 @@ export class Mpp14Reader {
         maxUnits: 100,
         cost: 0,
         work: null,
+        resourcePool: null,
       },
     ];
 
@@ -335,6 +354,7 @@ export class Mpp14Reader {
         maxUnits: 100,
         cost: 0,
         work: null,
+        resourcePool: null,
       });
     }
 
@@ -434,6 +454,8 @@ export class Mpp14Reader {
         units: 100,
         start,
         finish,
+        actualWork: null,
+        remainingWork: null,
       });
     }
 

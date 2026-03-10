@@ -131,6 +131,15 @@ function mapTask(input: FixtureTask): Task {
     baselineFinish: parseDate(input.baseline_finish),
     baselineDuration: Duration.parseSimple(input.baseline_duration),
     constraintType: null,
+    freeSlack: null,
+    totalSlack: null,
+    earlyStart: null,
+    earlyFinish: null,
+    lateStart: null,
+    lateFinish: null,
+    levelingDelay: null,
+    deadline: null,
+    splits: null,
     predecessors: input.predecessors.map((predecessor) =>
       mapRelation(predecessor, input.unique_id),
     ),
@@ -157,6 +166,7 @@ function mapResource(input: FixtureResource): Resource {
     maxUnits: parseNumber(input.max_units),
     cost: parseNumber(input.cost),
     work: null,
+    resourcePool: null,
   };
 }
 
@@ -168,6 +178,8 @@ function mapAssignment(input: FixtureAssignment): Assignment {
     units: parseNumber(input.units),
     start: parseDate(input.start),
     finish: parseDate(input.finish),
+    actualWork: null,
+    remainingWork: null,
   };
 }
 
