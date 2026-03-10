@@ -783,12 +783,29 @@ describe("MSPDI round-trip", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Tests that require an MPP file (skipped since no fixture available)
+// Tests that require an MPP file
 // ---------------------------------------------------------------------------
 
 describe("MSPDI with MPP fixture", () => {
-  test.skip("round-trips the fixture project through MSPDI XML", () => {
-    // This test requires an MPP fixture file and MppReader
-    // It will be enabled once the MPP reader layer is complete
+  test("round-trips the fixture project through MSPDI XML", async () => {
+    const { MppReader } = await import("../src/mpp/MppReader.ts");
+    const fixturePath = new URL("./sample-schedule.mpp", import.meta.url);
+    const { fileURLToPath } = await import("node:url");
+    const project = await new MppReader().read(fileURLToPath(fixturePath), {
+      allowDefaultFixture: false,
+    });
+
+    const xml = new MspdiWriter().write(project);
+    const roundTripped = new MspdiReader().read(xml);
+
+    expect(roundTripped.tasks.length).toBe(project.tasks.length);
+    expect(roundTripped.resources.length).toBe(project.resources.length);
+    expect(roundTripped.assignments.length).toBe(project.assignments.length);
+
+    for (const [i, task] of roundTripped.tasks.entries()) {
+      const original = project.tasks[i]!;
+      expect(task.name ?? null).toBe(original.name?.trimEnd() ?? null);
+      expect(task.id).toBe(original.id);
+    }
   });
 });
