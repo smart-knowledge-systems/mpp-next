@@ -20,6 +20,13 @@ export function detectMppVariant(container: MppContainer): MppVariant {
   const majorVersion =
     parseVersionSuffix(formatPropsPath) ?? inferVersionFromRootPath(rootPath) ?? 14;
 
+  if (majorVersion < 14) {
+    throw new Error(
+      `Unsupported MPP file version: detected version ${majorVersion}. ` +
+        `Only MPP14 and later (Microsoft Project 2010+) are supported.`,
+    );
+  }
+
   return {
     family: "modern",
     majorVersion,
@@ -80,7 +87,11 @@ function detectRootPath(container: MppContainer): string {
 
   const rootPath = ranked.at(-1)?.[0];
   if (!rootPath) {
-    throw new Error("Unsupported MPP file: unable to locate a modern TBknd root");
+    throw new Error(
+      "Unsupported MPP file: no TBknd table streams found. " +
+        "This file may use an older format (MPP8, MPP9, or MPP12). " +
+        "Only MPP14 and later (Microsoft Project 2010+) are supported.",
+    );
   }
 
   const requiredTables = ["TBkndTask", "TBkndRsc", "TBkndAssn", "TBkndCal", "TBkndCons"];
