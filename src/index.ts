@@ -7,6 +7,8 @@ import { JsonReader } from "./json/JsonReader.ts";
 import { JsonWriter } from "./json/JsonWriter.ts";
 import { CsvWriter } from "./csv/CsvWriter.ts";
 import type { CsvWriterOptions } from "./csv/CsvWriter.ts";
+import { XlsxWriter } from "./xlsx/XlsxWriter.ts";
+import type { XlsxWriterOptions } from "./xlsx/XlsxWriter.ts";
 import type { ProjectFile } from "./model/Project.ts";
 
 export async function readMpp(path: string): Promise<ProjectFile> {
@@ -33,6 +35,13 @@ export function writeCsv(project: ProjectFile, options?: CsvWriterOptions): stri
   return new CsvWriter().write(project, options);
 }
 
+export async function writeXlsx(
+  project: ProjectFile,
+  options?: XlsxWriterOptions,
+): Promise<Buffer> {
+  return new XlsxWriter().write(project, options);
+}
+
 // Types
 export type { ProjectFile } from "./model/Project.ts";
 export type { ProjectProperties } from "./model/types.ts";
@@ -49,6 +58,8 @@ export { JsonWriter } from "./json/JsonWriter.ts";
 export type { JsonWriterOptions } from "./json/JsonWriter.ts";
 export { CsvWriter } from "./csv/CsvWriter.ts";
 export type { CsvWriterOptions } from "./csv/CsvWriter.ts";
+export { XlsxWriter } from "./xlsx/XlsxWriter.ts";
+export type { XlsxWriterOptions } from "./xlsx/XlsxWriter.ts";
 
 // Enums
 export { TimeUnit, RelationType, ResourceType, ConstraintType, Priority } from "./model/types.ts";
