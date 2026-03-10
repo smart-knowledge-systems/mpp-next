@@ -62,11 +62,11 @@ const project = reader.readContainer(container);
 
 ### Supported formats
 
-| Format | Read | Write |
-| ------ | ---- | ----- |
-| MPP (binary, MPP14+ / Project 2010+) | Yes | No |
-| MSPDI (XML) | Yes | Yes |
-| JSON | No | Yes |
+| Format                               | Read | Write |
+| ------------------------------------ | ---- | ----- |
+| MPP (binary, MPP14+ / Project 2010+) | Yes  | No    |
+| MSPDI (XML)                          | Yes  | Yes   |
+| JSON                                 | No   | Yes   |
 
 Older MPP versions (8, 9, 12) are detected and produce a clear error message explaining that only MPP14+ is supported.
 
