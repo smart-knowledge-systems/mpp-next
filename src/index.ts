@@ -38,7 +38,7 @@ export function writeCsv(project: ProjectFile, options?: CsvWriterOptions): stri
 export async function writeXlsx(
   project: ProjectFile,
   options?: XlsxWriterOptions,
-): Promise<Buffer> {
+): Promise<Uint8Array> {
   return new XlsxWriter().write(project, options);
 }
 

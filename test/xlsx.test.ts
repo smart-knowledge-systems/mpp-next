@@ -4,7 +4,7 @@ import ExcelJS from "exceljs";
 
 import { XlsxWriter } from "../src/xlsx/XlsxWriter.ts";
 import { Duration } from "../src/model/Duration.ts";
-import { TimeUnit, ResourceType } from "../src/model/types.ts";
+import { TimeUnit } from "../src/model/types.ts";
 import type { ProjectFile } from "../src/model/Project.ts";
 
 const FIXTURE_MPP_PATH = resolveFixturePath("./sample-schedule.mpp");
@@ -23,8 +23,8 @@ describe("XlsxWriter", () => {
     const writer = new XlsxWriter();
     const buffer = await writer.write(project);
 
-    expect(buffer).toBeInstanceOf(Buffer);
-    expect(buffer.length).toBeGreaterThan(0);
+    expect(buffer).toBeInstanceOf(Uint8Array);
+    expect(buffer.byteLength).toBeGreaterThan(0);
 
     // Parse the buffer back and verify structure
     const workbook = new ExcelJS.Workbook();

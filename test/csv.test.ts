@@ -2,10 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { fileURLToPath } from "node:url";
 
 import { CsvWriter } from "../src/csv/CsvWriter.ts";
-import { formatProjectDate } from "../src/dateTime.ts";
 import type { ProjectFile } from "../src/model/Project.ts";
 import { Duration } from "../src/model/Duration.ts";
-import { TimeUnit, RelationType, ResourceType } from "../src/model/types.ts";
+import { TimeUnit, ResourceType } from "../src/model/types.ts";
 
 const FIXTURE_MPP_PATH = resolveFixturePath("./sample-schedule.mpp");
 const FIXTURE_CSV_PATH = resolveFixturePath("./project_schedule.csv");

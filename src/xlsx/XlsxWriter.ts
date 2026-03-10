@@ -40,11 +40,13 @@ function durationUnitLabel(dur: Duration): string {
       return '" mos"';
     case "percent":
       return '"%"';
+    default:
+      return "";
   }
 }
 
 export class XlsxWriter {
-  async write(project: ProjectFile, options?: XlsxWriterOptions): Promise<Buffer> {
+  async write(project: ProjectFile, options?: XlsxWriterOptions): Promise<Uint8Array> {
     const sheetName = options?.sheetName ?? "Schedule";
 
     const workbook = new ExcelJS.Workbook();
@@ -120,6 +122,6 @@ export class XlsxWriter {
 
     sheet.properties.outlineLevelRow = 4;
 
-    return (await workbook.xlsx.writeBuffer()) as Buffer;
+    return await workbook.xlsx.writeBuffer();
   }
 }
