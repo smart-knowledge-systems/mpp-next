@@ -1,2 +1,8 @@
-// Advanced subpath API — filled in Phase 3
-export {};
+// Advanced subpath API — full reader/writer classes + container utilities
+
+export { MppReader, loadMppContainer } from "./mpp/MppReader.ts";
+export { MspdiReader } from "./mspdi/MspdiReader.ts";
+export { MspdiWriter } from "./mspdi/MspdiWriter.ts";
+export { detectMppVariant } from "./mpp/MppVariant.ts";
+export type { MppContainer, MppInspection } from "./mpp/Mpp14Reader.ts";
+export type { MppVariant } from "./mpp/MppVariant.ts";
