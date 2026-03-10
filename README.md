@@ -11,7 +11,7 @@ bun install
 ## Usage
 
 ```ts
-import { readMpp, readMspdi, readJson, writeMspdi, writeJson } from "mpp-next";
+import { readMpp, readMspdi, readJson, writeMspdi, writeJson, writeCsv, writeXlsx } from "mpp-next";
 
 // Read a binary MPP file (MPP14+ / Microsoft Project 2010+)
 const project = await readMpp("schedule.mpp");
@@ -26,6 +26,15 @@ const compact = writeJson(project, { pretty: false });
 
 // Write MSPDI XML
 const xml = writeMspdi(project);
+
+// Write CSV (leaf tasks by default, with resource names from assignments)
+const csv = writeCsv(project);
+const csvAll = writeCsv(project, { includeSummaryTasks: true, includeResources: false });
+
+// Write Excel (returns a Buffer)
+const xlsx = await writeXlsx(project);
+await Bun.write("schedule.xlsx", xlsx);
+const xlsxCustom = await writeXlsx(project, { sheetName: "Tasks" });
 ```
 
 ### Validation with Zod
@@ -59,6 +68,8 @@ import {
   MspdiWriter,
   JsonReader,
   JsonWriter,
+  CsvWriter,
+  XlsxWriter,
   loadMppContainer,
   detectMppVariant,
 } from "mpp-next/advanced";
@@ -89,16 +100,18 @@ const project = reader.readContainer(container);
 | MPP (binary, MPP14+ / Project 2010+) | Yes  | No    |
 | MSPDI (XML)                          | Yes  | Yes   |
 | JSON                                 | Yes  | Yes   |
+| CSV                                  | No   | Yes   |
+| XLSX (Excel)                         | No   | Yes   |
 
 Older MPP versions (8, 9, 12) are detected and produce a clear error message explaining that only MPP14+ is supported.
 
 ### Subpath exports
 
-| Path                | Contents                                             |
-| ------------------- | ---------------------------------------------------- |
-| `mpp-next`          | Convenience functions (`readMpp`, `writeJson`, etc.) |
-| `mpp-next/advanced` | Reader/writer classes, container utilities           |
-| `mpp-next/schema`   | Zod validation schemas for all model types           |
+| Path                | Contents                                                                      |
+| ------------------- | ----------------------------------------------------------------------------- |
+| `mpp-next`          | Convenience functions (`readMpp`, `writeJson`, `writeCsv`, `writeXlsx`, etc.) |
+| `mpp-next/advanced` | Reader/writer classes, container utilities                                    |
+| `mpp-next/schema`   | Zod validation schemas for all model types                                    |
 
 ## Scripts
 
