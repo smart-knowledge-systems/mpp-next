@@ -59,13 +59,15 @@ async function safeMppLoad(path: string): Promise<MppContainer> {
 }
 
 export async function loadMppContainer(path: string): Promise<MppContainer> {
-  const file = Bun.file(path);
-  const exists = await file.exists();
-  if (!exists) {
+  const { readFile, access } = await import("node:fs/promises");
+  try {
+    await access(path);
+  } catch {
     throw new Error(`MPP file not found: ${path}`);
   }
 
-  const arrayBuffer = await file.arrayBuffer();
+  const buffer = await readFile(path);
+  const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
   if (arrayBuffer.byteLength === 0) {
     throw new Error(
       `Failed to read MPP file: ${path}. The file is empty and not a valid MPP document.`,

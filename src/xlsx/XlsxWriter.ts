@@ -122,6 +122,7 @@ export class XlsxWriter {
 
     sheet.properties.outlineLevelRow = 4;
 
-    return await workbook.xlsx.writeBuffer();
+    const buffer = await workbook.xlsx.writeBuffer();
+    return new Uint8Array(buffer);
   }
 }
