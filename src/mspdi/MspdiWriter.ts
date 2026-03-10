@@ -5,11 +5,7 @@ import type { Resource } from "../model/Resource.ts";
 import type { Task } from "../model/Task.ts";
 import { formatProjectDate } from "../dateTime.ts";
 import { RelationType, ResourceType } from "../model/types.ts";
-import {
-  durationContextFromProject,
-  formatLinkLag,
-  formatXsdDuration,
-} from "./XsdDuration.ts";
+import { durationContextFromProject, formatLinkLag, formatXsdDuration } from "./XsdDuration.ts";
 
 export interface MspdiWriterOptions {
   saveVersion?: number;
@@ -28,22 +24,10 @@ export class MspdiWriter {
       tag("StartDate", formatDate(project.properties.startDate), 1),
       tag("FinishDate", formatDate(project.properties.finishDate), 1),
       tag("StatusDate", formatDate(project.properties.statusDate), 1),
-      tag(
-        "MinutesPerDay",
-        nullableNumber(project.properties.minutesPerDay),
-        1,
-      ),
-      tag(
-        "MinutesPerWeek",
-        nullableNumber(project.properties.minutesPerWeek),
-        1,
-      ),
+      tag("MinutesPerDay", nullableNumber(project.properties.minutesPerDay), 1),
+      tag("MinutesPerWeek", nullableNumber(project.properties.minutesPerWeek), 1),
       tag("DaysPerMonth", nullableNumber(project.properties.daysPerMonth), 1),
-      tag(
-        "CalendarUID",
-        nullableNumber(project.properties.defaultCalendarUniqueId),
-        1,
-      ),
+      tag("CalendarUID", nullableNumber(project.properties.defaultCalendarUniqueId), 1),
       "  <Calendars>",
       ...project.calendars.flatMap((calendar) => this.writeCalendar(calendar)),
       "  </Calendars>",
@@ -51,9 +35,7 @@ export class MspdiWriter {
       ...project.tasks.flatMap((task) => this.writeTask(task, durationContext)),
       "  </Tasks>",
       "  <Resources>",
-      ...project.resources.flatMap((resource) =>
-        this.writeResource(resource, durationContext),
-      ),
+      ...project.resources.flatMap((resource) => this.writeResource(resource, durationContext)),
       "  </Resources>",
       "  <Assignments>",
       ...project.assignments.flatMap((assignment) =>
@@ -137,22 +119,12 @@ export class MspdiWriter {
     lines.push(tag("BaselineStart", formatDate(task.baselineStart), 3));
     lines.push(tag("BaselineFinish", formatDate(task.baselineFinish), 3));
     lines.push(
-      tag(
-        "BaselineDuration",
-        formatXsdDuration(task.baselineDuration, durationContext),
-        3,
-      ),
+      tag("BaselineDuration", formatXsdDuration(task.baselineDuration, durationContext), 3),
     );
     for (const predecessor of task.predecessors) {
       const lag = formatLinkLag(predecessor.lag, durationContext);
       lines.push("      <PredecessorLink>");
-      lines.push(
-        tag(
-          "PredecessorUID",
-          nullableNumber(predecessor.predecessorUniqueId),
-          4,
-        ),
-      );
+      lines.push(tag("PredecessorUID", nullableNumber(predecessor.predecessorUniqueId), 4));
       lines.push(tag("Type", formatRelationType(predecessor.type), 4));
       lines.push(tag("LinkLag", lag.linkLag, 4));
       lines.push(tag("LagFormat", lag.lagFormat, 4));

@@ -3,50 +3,35 @@ import { TimeUnit } from "../model/types.ts";
 
 export class MppUtility {
   static getInt(buffer: Uint8Array, offset: number): number {
-    return new DataView(
-      buffer.buffer,
-      buffer.byteOffset,
-      buffer.byteLength,
-    ).getInt32(offset, true);
+    return new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength).getInt32(offset, true);
   }
 
   static getUInt(buffer: Uint8Array, offset: number): number {
-    return new DataView(
-      buffer.buffer,
-      buffer.byteOffset,
-      buffer.byteLength,
-    ).getUint32(offset, true);
+    return new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength).getUint32(
+      offset,
+      true,
+    );
   }
 
   static getShort(buffer: Uint8Array, offset: number): number {
-    return new DataView(
-      buffer.buffer,
-      buffer.byteOffset,
-      buffer.byteLength,
-    ).getInt16(offset, true);
+    return new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength).getInt16(offset, true);
   }
 
   static getUShort(buffer: Uint8Array, offset: number): number {
-    return new DataView(
-      buffer.buffer,
-      buffer.byteOffset,
-      buffer.byteLength,
-    ).getUint16(offset, true);
+    return new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength).getUint16(
+      offset,
+      true,
+    );
   }
 
   static getDouble(buffer: Uint8Array, offset: number): number {
-    return new DataView(
-      buffer.buffer,
-      buffer.byteOffset,
-      buffer.byteLength,
-    ).getFloat64(offset, true);
+    return new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength).getFloat64(
+      offset,
+      true,
+    );
   }
 
-  static getUnicodeString(
-    buffer: Uint8Array,
-    offset: number,
-    byteLength: number,
-  ): string {
+  static getUnicodeString(buffer: Uint8Array, offset: number, byteLength: number): string {
     const slice = buffer.subarray(offset, offset + byteLength);
     const decoded = Buffer.from(slice).toString("utf16le");
     return decoded.replace(/\0+$/u, "");
@@ -56,17 +41,10 @@ export class MppUtility {
     if (offset >= buffer.length) {
       return "";
     }
-    return (
-      Buffer.from(buffer.subarray(offset)).toString("utf16le").split("\0")[0] ??
-      ""
-    );
+    return Buffer.from(buffer.subarray(offset)).toString("utf16le").split("\0")[0] ?? "";
   }
 
-  static getAnsiString(
-    buffer: Uint8Array,
-    offset = 0,
-    byteLength?: number,
-  ): string {
+  static getAnsiString(buffer: Uint8Array, offset = 0, byteLength?: number): string {
     const slice =
       byteLength === undefined
         ? buffer.subarray(offset)
@@ -96,10 +74,7 @@ export class MppUtility {
     return result;
   }
 
-  static durationFromTenthsOfMinutes(
-    value: number | null,
-    unit: TimeUnit,
-  ): Duration | null {
+  static durationFromTenthsOfMinutes(value: number | null, unit: TimeUnit): Duration | null {
     if (value === null) {
       return null;
     }

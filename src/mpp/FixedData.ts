@@ -29,19 +29,10 @@ export class FixedData {
   }
 
   isValidOffset(offset: number | null | undefined): boolean {
-    return (
-      offset !== null &&
-      offset !== undefined &&
-      this.getIndexFromOffset(offset) !== -1
-    );
+    return offset !== null && offset !== undefined && this.getIndexFromOffset(offset) !== -1;
   }
 
-  static fromMeta(
-    meta: FixedMeta,
-    raw: Uint8Array,
-    maxExpectedSize = 0,
-    minSize = 0,
-  ): FixedData {
+  static fromMeta(meta: FixedMeta, raw: Uint8Array, maxExpectedSize = 0, minSize = 0): FixedData {
     const records: Array<Uint8Array | null> = [];
     const offsets: number[] = [];
 
@@ -65,9 +56,7 @@ export class FixedData {
         itemSize = raw.length - itemOffset;
       } else {
         const nextMetaData = meta.getByteArrayValue(index + 1);
-        const nextOffset = nextMetaData
-          ? MppUtility.getInt(nextMetaData, 4)
-          : raw.length;
+        const nextOffset = nextMetaData ? MppUtility.getInt(nextMetaData, 4) : raw.length;
         itemSize = nextOffset - itemOffset;
       }
 
@@ -77,29 +66,20 @@ export class FixedData {
 
       const available = raw.length - itemOffset;
       if (itemSize < 0 || itemSize > available) {
-        itemSize =
-          maxExpectedSize === 0
-            ? available
-            : Math.min(maxExpectedSize, available);
+        itemSize = maxExpectedSize === 0 ? available : Math.min(maxExpectedSize, available);
       }
 
       if (maxExpectedSize !== 0 && itemSize > maxExpectedSize) {
         itemSize = maxExpectedSize;
       }
 
-      records.push(
-        itemSize > 0 ? raw.subarray(itemOffset, itemOffset + itemSize) : null,
-      );
+      records.push(itemSize > 0 ? raw.subarray(itemOffset, itemOffset + itemSize) : null);
     }
 
     return new FixedData(raw, records, offsets);
   }
 
-  static fromFixedSize(
-    raw: Uint8Array,
-    itemSize: number,
-    readRemainderBlock = false,
-  ): FixedData {
+  static fromFixedSize(raw: Uint8Array, itemSize: number, readRemainderBlock = false): FixedData {
     const count =
       Math.floor(raw.length / itemSize) +
       (readRemainderBlock && raw.length % itemSize !== 0 ? 1 : 0);

@@ -87,7 +87,11 @@ describe("XsdDuration", () => {
 
     test("uses custom context", () => {
       // 600 min/day context: PT10H = 600 min = 1 day
-      const d = parseXsdDuration("PT10H0M0S", { minutesPerDay: 600, minutesPerWeek: 3000, daysPerMonth: 20 });
+      const d = parseXsdDuration("PT10H0M0S", {
+        minutesPerDay: 600,
+        minutesPerWeek: 3000,
+        daysPerMonth: 20,
+      });
       expect(d).not.toBeNull();
       expect(d!.value).toBe(1);
       expect(d!.unit).toBe(TimeUnit.Days);
@@ -564,9 +568,7 @@ describe("MSPDI round-trip", () => {
     expect(project.properties.defaultCalendarUniqueId).toBe(1);
     expect(project.tasks[0]?.duration?.toSimpleString()).toBe("1.0d");
     expect(project.tasks[0]?.work?.toSimpleString()).toBe("1.0d");
-    expect(project.tasks[1]?.predecessors[0]?.lag?.toSimpleString()).toBe(
-      "1.0d",
-    );
+    expect(project.tasks[1]?.predecessors[0]?.lag?.toSimpleString()).toBe("1.0d");
     expect(project.resources[0]?.maxUnits).toBe(150);
     expect(project.assignments[0]?.units).toBe(50);
     expect(project.assignments[0]?.work?.toSimpleString()).toBe("4.0h");

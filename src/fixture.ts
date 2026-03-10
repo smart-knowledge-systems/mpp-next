@@ -6,11 +6,7 @@ import type { Relation } from "./model/Relation.ts";
 import type { Resource } from "./model/Resource.ts";
 import type { Task } from "./model/Task.ts";
 import { parseProjectDate } from "./dateTime.ts";
-import {
-  RelationType,
-  ResourceType,
-  type ProjectProperties,
-} from "./model/types.ts";
+import { RelationType, ResourceType, type ProjectProperties } from "./model/types.ts";
 
 interface FixtureProjectData {
   project: {
@@ -96,9 +92,7 @@ export function projectFromFixtureJson(json: string): ProjectFile {
   return projectFromFixtureData(JSON.parse(json) as FixtureProjectData);
 }
 
-function mapProperties(
-  input: FixtureProjectData["project"],
-): ProjectProperties {
+function mapProperties(input: FixtureProjectData["project"]): ProjectProperties {
   return {
     title: input.title,
     author: input.author,
@@ -143,10 +137,7 @@ function mapTask(input: FixtureTask): Task {
   };
 }
 
-function mapRelation(
-  input: FixtureRelation,
-  successorUniqueId: number | null,
-): Relation {
+function mapRelation(input: FixtureRelation, successorUniqueId: number | null): Relation {
   return {
     predecessorUniqueId: input.predecessor_unique_id,
     successorUniqueId,

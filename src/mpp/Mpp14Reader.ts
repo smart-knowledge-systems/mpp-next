@@ -61,12 +61,10 @@ export class Mpp14Reader {
   ) {}
 
   inspect(): MppInspection {
-    const streams = Array.from(this.container.streams.entries()).map(
-      ([path, raw]) => ({
-        path,
-        size: raw.length,
-      }),
-    );
+    const streams = Array.from(this.container.streams.entries()).map(([path, raw]) => ({
+      path,
+      size: raw.length,
+    }));
 
     return {
       family: this.variant.family,
@@ -78,9 +76,7 @@ export class Mpp14Reader {
       formatProps: this.variant.formatPropsPath
         ? this.readProps(this.variant.formatPropsPath)
         : null,
-      props14: this.variant.formatPropsPath
-        ? this.readProps(this.variant.formatPropsPath)
-        : null,
+      props14: this.variant.formatPropsPath ? this.readProps(this.variant.formatPropsPath) : null,
       taskTable: this.inspectTable(this.variant.taskTablePath),
       resourceTable: this.inspectTable(this.variant.resourceTablePath),
       assignmentTable: this.inspectTable(this.variant.assignmentTablePath),
@@ -92,9 +88,7 @@ export class Mpp14Reader {
     const project = createEmptyProject();
     const projectProps = this.requireProps(this.variant.projectPropsPath);
     const summaryInformation = this.variant.summaryInformationPath
-      ? Props.parseSummaryInformation(
-          this.requireStream(this.variant.summaryInformationPath),
-        )
+      ? Props.parseSummaryInformation(this.requireStream(this.variant.summaryInformationPath))
       : { title: null, author: null };
 
     project.properties = {
@@ -118,9 +112,7 @@ export class Mpp14Reader {
     this.attachRelations(taskRecords);
     this.populateTaskHierarchy(taskRecords, project.properties.finishDate);
 
-    project.tasks = taskRecords
-      .map((record) => record.task)
-      .sort(compareTaskOrder);
+    project.tasks = taskRecords.map((record) => record.task).sort(compareTaskOrder);
     project.resources = resources.sort(compareResourceOrder);
     project.calendars = calendars.sort(compareCalendarOrder);
     project.assignments = this.readAssignments(
@@ -133,10 +125,7 @@ export class Mpp14Reader {
   private inspectTable(prefix: string): MppTableInspection {
     return {
       props: this.readProps(`${prefix}/Props`),
-      fixedMeta: this.readFixedMeta(
-        `${prefix}/FixedMeta`,
-        itemSizeForPrefix(prefix),
-      ),
+      fixedMeta: this.readFixedMeta(`${prefix}/FixedMeta`, itemSizeForPrefix(prefix)),
       varMeta: this.readVarMeta(`${prefix}/VarMeta`),
       fixedDataSize: this.getSize(`${prefix}/FixedData`),
       fixed2DataSize: this.getSize(`${prefix}/Fixed2Data`),
@@ -170,11 +159,7 @@ export class Mpp14Reader {
     );
 
     const taskMap = new Map<number, number | null>();
-    for (
-      let index = taskFixedMeta.adjustedItemCount - 1;
-      index > 2;
-      index -= 1
-    ) {
+    for (let index = taskFixedMeta.adjustedItemCount - 1; index > 2; index -= 1) {
       const data = taskFixedData.getByteArrayValue(index);
       const data2 = taskFixed2Data.getByteArrayValue(index);
       const metaData = taskFixedMeta.getByteArrayValue(index);
@@ -268,25 +253,16 @@ export class Mpp14Reader {
           name: taskVarData.getUnicodeStringById(uniqueId, 14),
           wbs: null,
           outlineLevel: safeShort(data, 172),
-          start:
-            MppUtility.getTimestampValue(data, 104) ??
-            MppUtility.getTimestampValue(data, 96),
+          start: MppUtility.getTimestampValue(data, 104) ?? MppUtility.getTimestampValue(data, 96),
           finish:
-            MppUtility.getTimestampValue(data, 108) ??
-            MppUtility.getTimestampValue(data, 100),
-          duration: MppUtility.durationFromTenthsOfMinutes(
-            durationTenths,
-            TimeUnit.Minutes,
-          ),
+            MppUtility.getTimestampValue(data, 108) ?? MppUtility.getTimestampValue(data, 100),
+          duration: MppUtility.durationFromTenthsOfMinutes(durationTenths, TimeUnit.Minutes),
           percentComplete: 0,
           summary: false,
           milestone: durationTenths === 0,
           critical:
             projectFinish !== null &&
-            MppUtility.isSameMinute(
-              MppUtility.getTimestampValue(data, 100),
-              projectFinish,
-            ),
+            MppUtility.isSameMinute(MppUtility.getTimestampValue(data, 100), projectFinish),
           notes: taskVarData.getUnicodeStringById(uniqueId, 15),
           priority: safeShort(data, 78),
           cost: 0,
@@ -401,9 +377,7 @@ export class Mpp14Reader {
 
         const name =
           calendarVarData.getUnicodeStringById(calendarId, 1) ??
-          (resourceId > 0
-            ? (resourceNames.get(resourceId) ?? null)
-            : "Unnamed Resource");
+          (resourceId > 0 ? (resourceNames.get(resourceId) ?? null) : "Unnamed Resource");
 
         calendars.set(calendarId, {
           uniqueId: calendarId,
@@ -429,11 +403,7 @@ export class Mpp14Reader {
 
     const assignments: Assignment[] = [];
 
-    for (
-      let index = 0;
-      index < assignmentFixedMeta.adjustedItemCount;
-      index += 1
-    ) {
+    for (let index = 0; index < assignmentFixedMeta.adjustedItemCount; index += 1) {
       const metaData = assignmentFixedMeta.getByteArrayValue(index);
       if (!metaData || metaData[0] !== 0) {
         continue;
@@ -484,19 +454,13 @@ export class Mpp14Reader {
     );
 
     let lastConstraintId = -1;
-    for (
-      let index = 0;
-      index < relationFixedMeta.adjustedItemCount;
-      index += 1
-    ) {
+    for (let index = 0; index < relationFixedMeta.adjustedItemCount; index += 1) {
       const metaData = relationFixedMeta.getByteArrayValue(index);
       if (!metaData || MppUtility.getShort(metaData, 0) !== 0) {
         continue;
       }
 
-      const recordIndex = relationFixedData.getIndexFromOffset(
-        MppUtility.getInt(metaData, 4),
-      );
+      const recordIndex = relationFixedData.getIndexFromOffset(MppUtility.getInt(metaData, 4));
       if (recordIndex === -1) {
         continue;
       }
@@ -533,10 +497,7 @@ export class Mpp14Reader {
     }
   }
 
-  private populateTaskHierarchy(
-    taskRecords: TaskRecord[],
-    projectFinish: Date | null,
-  ): void {
+  private populateTaskHierarchy(taskRecords: TaskRecord[], projectFinish: Date | null): void {
     const childrenByParent = new Map<number, TaskRecord[]>();
     for (const record of taskRecords) {
       if (record.parentRawUniqueId === null) {
@@ -561,16 +522,11 @@ export class Mpp14Reader {
       } else if (record.parentRawUniqueId === null) {
         record.task.wbs = null;
       } else {
-        const nextIndex =
-          (counterByParent.get(record.parentRawUniqueId) ?? 0) + 1;
+        const nextIndex = (counterByParent.get(record.parentRawUniqueId) ?? 0) + 1;
         counterByParent.set(record.parentRawUniqueId, nextIndex);
         const parentWbs = wbsByUniqueId.get(record.parentRawUniqueId);
         record.task.wbs =
-          parentWbs === "0"
-            ? `${nextIndex}`
-            : parentWbs
-              ? `${parentWbs}.${nextIndex}`
-              : null;
+          parentWbs === "0" ? `${nextIndex}` : parentWbs ? `${parentWbs}.${nextIndex}` : null;
         if (record.task.wbs) {
           wbsByUniqueId.set(record.rawUniqueId, record.task.wbs);
         }
@@ -579,9 +535,7 @@ export class Mpp14Reader {
       if (record.durationTenths !== null) {
         record.task.duration = MppUtility.durationFromTenthsOfMinutes(
           record.durationTenths,
-          record.task.summary || record.durationTenths >= 4800
-            ? TimeUnit.Days
-            : TimeUnit.Minutes,
+          record.task.summary || record.durationTenths >= 4800 ? TimeUnit.Days : TimeUnit.Minutes,
         );
       }
 
@@ -687,26 +641,18 @@ function normalizeResourceId(value: number): number | null {
 }
 
 function safeShort(buffer: Uint8Array, offset: number): number | null {
-  return offset + 2 <= buffer.length
-    ? MppUtility.getUShort(buffer, offset)
-    : null;
+  return offset + 2 <= buffer.length ? MppUtility.getUShort(buffer, offset) : null;
 }
 
 function safeInt(buffer: Uint8Array, offset: number): number | null {
   return offset + 4 <= buffer.length ? MppUtility.getInt(buffer, offset) : null;
 }
 
-function elapsedHoursDuration(
-  start: Date | null,
-  finish: Date | null,
-): Duration | null {
+function elapsedHoursDuration(start: Date | null, finish: Date | null): Duration | null {
   if (!start || !finish) {
     return null;
   }
-  return Duration.from(
-    (finish.getTime() - start.getTime()) / 3_600_000,
-    TimeUnit.Hours,
-  );
+  return Duration.from((finish.getTime() - start.getTime()) / 3_600_000, TimeUnit.Hours);
 }
 
 function parseRelationType(value: number): RelationType {

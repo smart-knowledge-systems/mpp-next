@@ -1,11 +1,7 @@
 import CFB from "cfb";
 
 import type { ProjectFile } from "../model/Project.ts";
-import {
-  Mpp14Reader,
-  type MppContainer,
-  type MppInspection,
-} from "./Mpp14Reader.ts";
+import { Mpp14Reader, type MppContainer, type MppInspection } from "./Mpp14Reader.ts";
 import { detectMppVariant } from "./MppVariant.ts";
 
 export interface MppReadOptions {

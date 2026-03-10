@@ -38,19 +38,19 @@ export function detectMppVariant(container: MppContainer): MppVariant {
 }
 
 function detectFormatPropsPath(container: MppContainer): string | null {
-  return [...container.streams.keys()]
-    .filter((path) => /\/Props\d+$/u.test(path))
-    .sort(compareVersionedPaths)
-    .at(-1) ?? null;
+  return (
+    [...container.streams.keys()]
+      .filter((path) => /\/Props\d+$/u.test(path))
+      .sort(compareVersionedPaths)
+      .at(-1) ?? null
+  );
 }
 
 function detectRootPath(container: MppContainer): string {
   const candidates = new Map<string, number>();
 
   for (const path of container.streams.keys()) {
-    const match = /^(.*)\/TBknd(Task|Rsc|Assn|Cal|Cons)\/Fixed(?:2)?Data$/u.exec(
-      path,
-    );
+    const match = /^(.*)\/TBknd(Task|Rsc|Assn|Cal|Cons)\/Fixed(?:2)?Data$/u.exec(path);
     if (!match) {
       continue;
     }
@@ -83,13 +83,7 @@ function detectRootPath(container: MppContainer): string {
     throw new Error("Unsupported MPP file: unable to locate a modern TBknd root");
   }
 
-  const requiredTables = [
-    "TBkndTask",
-    "TBkndRsc",
-    "TBkndAssn",
-    "TBkndCal",
-    "TBkndCons",
-  ];
+  const requiredTables = ["TBkndTask", "TBkndRsc", "TBkndAssn", "TBkndCal", "TBkndCons"];
   for (const table of requiredTables) {
     const fixedDataPath = `${rootPath}/${table}/FixedData`;
     if (!container.streams.has(fixedDataPath)) {

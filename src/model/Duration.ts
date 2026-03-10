@@ -101,9 +101,7 @@ export class Duration {
   }
 
   toSimpleString(): string {
-    const value = Number.isInteger(this.value)
-      ? this.value.toFixed(1)
-      : String(this.value);
+    const value = Number.isInteger(this.value) ? this.value.toFixed(1) : String(this.value);
     switch (this.unit) {
       case TimeUnit.Minutes:
         return `${value}m`;

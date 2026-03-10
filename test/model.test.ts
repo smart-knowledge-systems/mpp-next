@@ -176,9 +176,7 @@ describe("Duration", () => {
     });
 
     test("formats minutes", () => {
-      expect(new Duration(30, TimeUnit.Minutes).toIso8601()).toBe(
-        "PT0H30M0S",
-      );
+      expect(new Duration(30, TimeUnit.Minutes).toIso8601()).toBe("PT0H30M0S");
     });
 
     test("formats months", () => {
@@ -196,9 +194,7 @@ describe("Duration", () => {
 
   describe("toSimpleString()", () => {
     test("formats integer minutes with .0", () => {
-      expect(new Duration(30, TimeUnit.Minutes).toSimpleString()).toBe(
-        "30.0m",
-      );
+      expect(new Duration(30, TimeUnit.Minutes).toSimpleString()).toBe("30.0m");
     });
 
     test("formats integer hours with .0", () => {

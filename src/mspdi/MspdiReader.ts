@@ -13,11 +13,7 @@ import {
   type CalendarException,
   type CalendarWeekDay,
 } from "../model/types.ts";
-import {
-  durationContextFromProject,
-  parseLinkLag,
-  parseXsdDuration,
-} from "./XsdDuration.ts";
+import { durationContextFromProject, parseLinkLag, parseXsdDuration } from "./XsdDuration.ts";
 
 interface ProjectNode {
   SaveVersion?: string;
@@ -147,14 +143,12 @@ export class MspdiReader {
     project.calendars = arrayify(root.Calendars?.Calendar).map((calendar) =>
       this.parseCalendar(calendar),
     );
-    project.tasks = arrayify(root.Tasks?.Task).map((task) =>
-      this.parseTask(task, durationContext),
-    );
+    project.tasks = arrayify(root.Tasks?.Task).map((task) => this.parseTask(task, durationContext));
     project.resources = arrayify(root.Resources?.Resource).map((resource) =>
       this.parseResource(resource, durationContext),
     );
-    project.assignments = arrayify(root.Assignments?.Assignment).map(
-      (assignment) => this.parseAssignment(assignment, durationContext),
+    project.assignments = arrayify(root.Assignments?.Assignment).map((assignment) =>
+      this.parseAssignment(assignment, durationContext),
     );
 
     return project;
@@ -164,9 +158,7 @@ export class MspdiReader {
     return {
       uniqueId: parseNumber(node.UID),
       name: nullIfEmpty(node.Name),
-      weekDays: arrayify(node.WeekDays?.WeekDay).map((weekDay) =>
-        this.parseWeekDay(weekDay),
-      ),
+      weekDays: arrayify(node.WeekDays?.WeekDay).map((weekDay) => this.parseWeekDay(weekDay)),
       exceptions: arrayify(node.Exceptions?.Exception).map((exception) =>
         this.parseException(exception),
       ),
@@ -177,12 +169,10 @@ export class MspdiReader {
     return {
       dayType: parseNumber(node.DayType) ?? 0,
       working: parseBool(node.DayWorking) ?? false,
-      workingTimes: arrayify(node.WorkingTimes?.WorkingTime).map(
-        (workingTime) => ({
-          from: nullIfEmpty(workingTime.FromTime) ?? "08:00:00",
-          to: nullIfEmpty(workingTime.ToTime) ?? "17:00:00",
-        }),
-      ),
+      workingTimes: arrayify(node.WorkingTimes?.WorkingTime).map((workingTime) => ({
+        from: nullIfEmpty(workingTime.FromTime) ?? "08:00:00",
+        to: nullIfEmpty(workingTime.ToTime) ?? "17:00:00",
+      })),
     };
   }
 
@@ -200,14 +190,12 @@ export class MspdiReader {
     durationContext: ReturnType<typeof durationContextFromProject>,
   ): Task {
     const uid = parseNumber(node.UID);
-    const predecessors: Relation[] = arrayify(node.PredecessorLink).map(
-      (link) => ({
-        predecessorUniqueId: parseNumber(link.PredecessorUID),
-        successorUniqueId: uid,
-        type: parseRelationType(link.Type),
-        lag: parseLinkLag(link.LinkLag, link.LagFormat, durationContext),
-      }),
-    );
+    const predecessors: Relation[] = arrayify(node.PredecessorLink).map((link) => ({
+      predecessorUniqueId: parseNumber(link.PredecessorUID),
+      successorUniqueId: uid,
+      type: parseRelationType(link.Type),
+      lag: parseLinkLag(link.LinkLag, link.LagFormat, durationContext),
+    }));
 
     return {
       id: parseNumber(node.ID),

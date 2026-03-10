@@ -71,13 +71,9 @@ export class FixedMeta {
     const version = raw.length >= 8 ? MppUtility.getUInt(raw, 4) : 0;
     const itemCount = raw.length >= 12 ? MppUtility.getUInt(raw, 8) : 0;
     const itemSize = itemSizeProvider(raw.length, itemCount);
-    const adjustedItemCount =
-      itemSize > 0 ? Math.floor((raw.length - HEADER_SIZE) / itemSize) : 0;
+    const adjustedItemCount = itemSize > 0 ? Math.floor((raw.length - HEADER_SIZE) / itemSize) : 0;
     const items = Array.from({ length: adjustedItemCount }, (_, index) =>
-      raw.subarray(
-        HEADER_SIZE + index * itemSize,
-        HEADER_SIZE + (index + 1) * itemSize,
-      ),
+      raw.subarray(HEADER_SIZE + index * itemSize, HEADER_SIZE + (index + 1) * itemSize),
     );
 
     return new FixedMeta(

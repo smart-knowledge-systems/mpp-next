@@ -36,7 +36,8 @@ export function parseXsdDuration(
     return Duration.from(days, TimeUnit.Days);
   }
 
-  const totalMinutes = hours * 60 + minutes + seconds / 60 + toMinutes(days, TimeUnit.Days, context);
+  const totalMinutes =
+    hours * 60 + minutes + seconds / 60 + toMinutes(days, TimeUnit.Days, context);
   return fromWorkingMinutes(totalMinutes, context);
 }
 
@@ -96,10 +97,7 @@ export function formatLinkLag(
 }
 
 export function durationContextFromProject(
-  project: Pick<
-    ProjectProperties,
-    "minutesPerDay" | "minutesPerWeek" | "daysPerMonth"
-  >,
+  project: Pick<ProjectProperties, "minutesPerDay" | "minutesPerWeek" | "daysPerMonth">,
 ): DurationContext {
   return {
     minutesPerDay: project.minutesPerDay,
@@ -108,10 +106,7 @@ export function durationContextFromProject(
   };
 }
 
-function fromWorkingMinutes(
-  totalMinutes: number,
-  context?: DurationContext,
-): Duration {
+function fromWorkingMinutes(totalMinutes: number, context?: DurationContext): Duration {
   const minutesPerWeek = normalizeMinutesPerWeek(context);
   const minutesPerDay = normalizeMinutesPerDay(context);
 
@@ -127,11 +122,7 @@ function fromWorkingMinutes(
   return Duration.from(totalMinutes, TimeUnit.Minutes);
 }
 
-function toMinutes(
-  value: number,
-  unit: TimeUnit,
-  context?: DurationContext,
-): number {
+function toMinutes(value: number, unit: TimeUnit, context?: DurationContext): number {
   switch (unit) {
     case TimeUnit.Weeks:
       return value * normalizeMinutesPerWeek(context);
@@ -150,9 +141,7 @@ function toMinutes(
 }
 
 function normalizeMinutesPerDay(context?: DurationContext): number {
-  return context?.minutesPerDay && context.minutesPerDay > 0
-    ? context.minutesPerDay
-    : 480;
+  return context?.minutesPerDay && context.minutesPerDay > 0 ? context.minutesPerDay : 480;
 }
 
 function normalizeMinutesPerWeek(context?: DurationContext): number {
@@ -162,9 +151,7 @@ function normalizeMinutesPerWeek(context?: DurationContext): number {
 }
 
 function normalizeDaysPerMonth(context?: DurationContext): number {
-  return context?.daysPerMonth && context.daysPerMonth > 0
-    ? context.daysPerMonth
-    : 20;
+  return context?.daysPerMonth && context.daysPerMonth > 0 ? context.daysPerMonth : 20;
 }
 
 function isWholeMultiple(value: number, base: number): boolean {

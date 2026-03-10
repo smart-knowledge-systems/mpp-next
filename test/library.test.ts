@@ -12,9 +12,7 @@ async function getMppReader() {
 }
 
 const FIXTURE_JSON_PATH = resolveFixturePath("./project_data.json");
-const FIXTURE_MPP_PATH = resolveFixturePath(
-  "./sample-schedule.mpp",
-);
+const FIXTURE_MPP_PATH = resolveFixturePath("./sample-schedule.mpp");
 const FIXTURE_CSV_PATH = resolveFixturePath("./project_schedule.csv");
 
 describe("fixture mapping", () => {
@@ -23,9 +21,7 @@ describe("fixture mapping", () => {
     const project = await new MppReader().read(FIXTURE_MPP_PATH, {
       allowDefaultFixture: false,
     });
-    const expected = JSON.parse(
-      await Bun.file(FIXTURE_JSON_PATH).text(),
-    ) as SerializedProject;
+    const expected = JSON.parse(await Bun.file(FIXTURE_JSON_PATH).text()) as SerializedProject;
 
     expect(serializeProject(project)).toEqual(expected);
   });
@@ -35,9 +31,7 @@ describe("fixture mapping", () => {
     const project = await new MppReader().read(FIXTURE_MPP_PATH, {
       allowDefaultFixture: false,
     });
-    const leafTasks = project.tasks.filter(
-      (task) => task.summary === false && task.id !== null,
-    );
+    const leafTasks = project.tasks.filter((task) => task.summary === false && task.id !== null);
     const csvRows = parseCsv(await Bun.file(FIXTURE_CSV_PATH).text());
 
     expect(csvRows).toHaveLength(leafTasks.length);
@@ -50,12 +44,8 @@ describe("fixture mapping", () => {
       expect(task!.wbs ?? "").toBe(row["WBS"] ?? "");
       expect(formatMinuteDate(task!.start) ?? "").toBe(row["Start"] ?? "");
       expect(formatMinuteDate(task!.finish) ?? "").toBe(row["Finish"] ?? "");
-      expect(task!.duration?.toSimpleString() ?? "").toBe(
-        row["Duration"] ?? "",
-      );
-      expect(formatDecimal(task!.percentComplete)).toBe(
-        row["% Complete"] ?? "",
-      );
+      expect(task!.duration?.toSimpleString() ?? "").toBe(row["Duration"] ?? "");
+      expect(formatDecimal(task!.percentComplete)).toBe(row["% Complete"] ?? "");
       expect(task!.critical ? "Yes" : "No").toBe(row["Critical"] ?? "");
       expect(task!.milestone ? "Yes" : "No").toBe(row["Milestone"] ?? "");
     }
@@ -145,9 +135,7 @@ describe("mspdi", () => {
     expect(project.properties.defaultCalendarUniqueId).toBe(1);
     expect(project.tasks[0]?.duration?.toSimpleString()).toBe("1.0d");
     expect(project.tasks[0]?.work?.toSimpleString()).toBe("1.0d");
-    expect(project.tasks[1]?.predecessors[0]?.lag?.toSimpleString()).toBe(
-      "1.0d",
-    );
+    expect(project.tasks[1]?.predecessors[0]?.lag?.toSimpleString()).toBe("1.0d");
     expect(project.resources[0]?.maxUnits).toBe(150);
     expect(project.assignments[0]?.units).toBe(50);
     expect(project.assignments[0]?.work?.toSimpleString()).toBe("4.0h");
@@ -213,11 +201,7 @@ function formatMinuteDate(value: Date | null): string | null {
 }
 
 function formatDecimal(value: number | null): string {
-  return value === null
-    ? ""
-    : Number.isInteger(value)
-      ? value.toFixed(1)
-      : String(value);
+  return value === null ? "" : Number.isInteger(value) ? value.toFixed(1) : String(value);
 }
 
 function parseCsv(text: string): Array<Record<string, string>> {
@@ -270,9 +254,7 @@ function parseCsv(text: string): Array<Record<string, string>> {
     return [];
   }
   return body.map((values) =>
-    Object.fromEntries(
-      header.map((column, index) => [column, values[index] ?? ""]),
-    ),
+    Object.fromEntries(header.map((column, index) => [column, values[index] ?? ""])),
   );
 }
 
@@ -298,16 +280,12 @@ function serializeProject(project: ProjectFile) {
       start: formatMinuteDate(task.start),
       finish: formatMinuteDate(task.finish),
       duration: serializeDuration(task.duration),
-      percent_complete:
-        task.percentComplete === null
-          ? null
-          : formatDecimal(task.percentComplete),
+      percent_complete: task.percentComplete === null ? null : formatDecimal(task.percentComplete),
       summary: task.summary,
       milestone: task.milestone,
       critical: task.critical,
       notes: task.notes,
-      priority:
-        task.priority === null ? null : `[Priority value=${task.priority}]`,
+      priority: task.priority === null ? null : `[Priority value=${task.priority}]`,
       actual_start: formatMinuteDate(task.actualStart),
       actual_finish: formatMinuteDate(task.actualFinish),
       baseline_start: formatMinuteDate(task.baselineStart),
@@ -328,8 +306,7 @@ function serializeProject(project: ProjectFile) {
       type: resource.type,
       email: resource.email,
       group: resource.group,
-      max_units:
-        resource.maxUnits === null ? null : formatDecimal(resource.maxUnits),
+      max_units: resource.maxUnits === null ? null : formatDecimal(resource.maxUnits),
       cost: resource.cost === null ? null : formatDecimal(resource.cost),
     })),
     assignments: project.assignments.map((assignment) => ({
@@ -348,10 +325,7 @@ function serializeProject(project: ProjectFile) {
 }
 
 function serializeDuration(
-  value:
-    | { value: number; unit: TimeUnit; toSimpleString(): string }
-    | null
-    | undefined,
+  value: { value: number; unit: TimeUnit; toSimpleString(): string } | null | undefined,
 ): string | null {
   if (!value) {
     return null;

@@ -2,9 +2,7 @@ export function parseProjectDate(raw: string | null | undefined): Date | null {
   return raw ? new Date(raw) : null;
 }
 
-export function formatProjectDate(
-  value: Date | null | undefined,
-): string | null {
+export function formatProjectDate(value: Date | null | undefined): string | null {
   if (!value) {
     return null;
   }
