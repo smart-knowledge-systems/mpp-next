@@ -3,6 +3,7 @@
 import { MppReader } from "./mpp/MppReader.ts";
 import { MspdiReader } from "./mspdi/MspdiReader.ts";
 import { MspdiWriter } from "./mspdi/MspdiWriter.ts";
+import { JsonWriter } from "./json/JsonWriter.ts";
 import type { ProjectFile } from "./model/Project.ts";
 
 export async function readMpp(path: string): Promise<ProjectFile> {
@@ -17,6 +18,10 @@ export function writeMspdi(project: ProjectFile, options?: { saveVersion?: numbe
   return new MspdiWriter().write(project, options);
 }
 
+export function writeJson(project: ProjectFile, options?: { pretty?: boolean }): string {
+  return new JsonWriter().write(project, options);
+}
+
 // Types
 export type { ProjectFile } from "./model/Project.ts";
 export type { ProjectProperties } from "./model/types.ts";
@@ -28,6 +33,8 @@ export type { Relation } from "./model/Relation.ts";
 
 // Classes
 export { Duration } from "./model/Duration.ts";
+export { JsonWriter } from "./json/JsonWriter.ts";
+export type { JsonWriterOptions } from "./json/JsonWriter.ts";
 
 // Enums
 export { TimeUnit, RelationType, ResourceType, ConstraintType, Priority } from "./model/types.ts";
