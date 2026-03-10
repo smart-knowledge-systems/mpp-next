@@ -13,8 +13,10 @@ bun install
 ```ts
 import { readMpp, readMspdi, readJson, writeMspdi, writeJson, writeCsv, writeXlsx } from "mpp-next";
 
-// Read a binary MPP file (MPP14+ / Microsoft Project 2010+)
-const project = await readMpp("schedule.mpp");
+// Read a binary MPP buffer (MPP14+ / Microsoft Project 2010+)
+// Accepts Uint8Array or ArrayBuffer — no filesystem access required
+const mppBytes = await file.arrayBuffer(); // e.g. from a client upload
+const project = readMpp(mppBytes);
 
 // Read MSPDI XML
 const project2 = readMspdi(xmlString);
@@ -31,7 +33,7 @@ const xml = writeMspdi(project);
 const csv = writeCsv(project);
 const csvAll = writeCsv(project, { includeSummaryTasks: true, includeResources: false });
 
-// Write Excel (returns a Buffer)
+// Write Excel (returns a Uint8Array)
 const xlsx = await writeXlsx(project);
 await Bun.write("schedule.xlsx", xlsx);
 const xlsxCustom = await writeXlsx(project, { sheetName: "Tasks" });
@@ -70,18 +72,21 @@ import {
   JsonWriter,
   CsvWriter,
   XlsxWriter,
-  loadMppContainer,
+  parseMppBuffer,
   detectMppVariant,
 } from "mpp-next/advanced";
 
 const reader = new MppReader();
 
-// Inspect without full parse
-const inspection = await reader.inspect("schedule.mpp");
+// Read from a buffer (Uint8Array or ArrayBuffer)
+const project = reader.read(mppBytes);
 
-// Load and read from a container directly
-const container = await loadMppContainer("schedule.mpp");
-const project = reader.readContainer(container);
+// Inspect without full parse
+const inspection = reader.inspect(mppBytes);
+
+// Parse buffer into a container and work with it directly
+const container = parseMppBuffer(mppBytes);
+const project2 = reader.readContainer(container);
 ```
 
 ### What it extracts

@@ -4,20 +4,14 @@ import type { ProjectFile } from "../model/Project.ts";
 import { Mpp14Reader, type MppContainer, type MppInspection } from "./Mpp14Reader.ts";
 import { detectMppVariant } from "./MppVariant.ts";
 
-export interface MppReadOptions {
-  fixtureJsonPath?: string;
-  allowDefaultFixture?: boolean;
-}
-
 export class MppReader {
-  async inspect(path: string): Promise<MppInspection> {
-    const container = await safeMppLoad(path);
+  inspect(data: Uint8Array | ArrayBuffer): MppInspection {
+    const container = parseMppBuffer(data);
     return this.inspectContainer(container);
   }
 
-  async read(path: string, _options?: MppReadOptions): Promise<ProjectFile> {
-    void _options;
-    const container = await safeMppLoad(path);
+  read(data: Uint8Array | ArrayBuffer): ProjectFile {
+    const container = parseMppBuffer(data);
     return this.readContainer(container);
   }
 
@@ -32,56 +26,20 @@ export class MppReader {
   }
 }
 
-async function safeMppLoad(path: string): Promise<MppContainer> {
-  try {
-    return await loadMppContainer(path);
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
+export function parseMppBuffer(data: Uint8Array | ArrayBuffer): MppContainer {
+  const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
 
-    if (
-      message.includes("ENOENT") ||
-      message.includes("No such file") ||
-      message.includes("no such file")
-    ) {
-      throw new Error(`MPP file not found: ${path}`, { cause: error });
-    }
-
-    if (message.includes("Unsupported MPP file")) {
-      throw error;
-    }
-
-    throw new Error(
-      `Failed to read MPP file: ${path}. ` +
-        `The file may be corrupted or not a valid OLE2/MPP document. (${message})`,
-      { cause: error },
-    );
-  }
-}
-
-export async function loadMppContainer(path: string): Promise<MppContainer> {
-  const { readFile, access } = await import("node:fs/promises");
-  try {
-    await access(path);
-  } catch {
-    throw new Error(`MPP file not found: ${path}`);
-  }
-
-  const buffer = await readFile(path);
-  const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
-  if (arrayBuffer.byteLength === 0) {
-    throw new Error(
-      `Failed to read MPP file: ${path}. The file is empty and not a valid MPP document.`,
-    );
+  if (bytes.byteLength === 0) {
+    throw new Error("Failed to read MPP data: the buffer is empty and not a valid MPP document.");
   }
 
   let cfb: { FullPaths: string[]; FileIndex: Array<{ type: number; content?: Uint8Array }> };
   try {
-    cfb = CFB.read(new Uint8Array(arrayBuffer), { type: "array" }) as typeof cfb;
+    cfb = CFB.read(bytes, { type: "array" }) as typeof cfb;
   } catch (error: unknown) {
     const detail = error instanceof Error ? error.message : String(error);
     throw new Error(
-      `Failed to read MPP file: ${path}. ` +
-        `The file is not a valid OLE2/MPP document. (${detail})`,
+      `Failed to read MPP data: the buffer is not a valid OLE2/MPP document. (${detail})`,
       { cause: error },
     );
   }
@@ -96,8 +54,8 @@ export async function loadMppContainer(path: string): Promise<MppContainer> {
 
   if (streams.size === 0) {
     throw new Error(
-      `Unsupported MPP file: no readable streams found in ${path}. ` +
-        `The file may use an older format that is not supported.`,
+      "Unsupported MPP data: no readable streams found. " +
+        "The data may use an older format that is not supported.",
     );
   }
 

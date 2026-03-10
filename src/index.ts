@@ -11,8 +11,8 @@ import { XlsxWriter } from "./xlsx/XlsxWriter.ts";
 import type { XlsxWriterOptions } from "./xlsx/XlsxWriter.ts";
 import type { ProjectFile } from "./model/Project.ts";
 
-export async function readMpp(path: string): Promise<ProjectFile> {
-  return new MppReader().read(path);
+export function readMpp(data: Uint8Array | ArrayBuffer): ProjectFile {
+  return new MppReader().read(data);
 }
 
 export function readMspdi(xml: string): ProjectFile {

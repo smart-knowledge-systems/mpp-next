@@ -1,6 +1,6 @@
 // Advanced subpath API — full reader/writer classes + container utilities
 
-export { MppReader, loadMppContainer } from "./mpp/MppReader.ts";
+export { MppReader, parseMppBuffer } from "./mpp/MppReader.ts";
 export { MspdiReader } from "./mspdi/MspdiReader.ts";
 export { MspdiWriter } from "./mspdi/MspdiWriter.ts";
 export { JsonReader } from "./json/JsonReader.ts";
