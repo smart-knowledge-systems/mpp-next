@@ -7,4 +7,6 @@ export interface Assignment {
   units: number | null;
   start: Date | null;
   finish: Date | null;
+  actualWork: Duration | null;
+  remainingWork: Duration | null;
 }
