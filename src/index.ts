@@ -5,6 +5,8 @@ import { MspdiReader } from "./mspdi/MspdiReader.ts";
 import { MspdiWriter } from "./mspdi/MspdiWriter.ts";
 import { JsonReader } from "./json/JsonReader.ts";
 import { JsonWriter } from "./json/JsonWriter.ts";
+import { CsvWriter } from "./csv/CsvWriter.ts";
+import type { CsvWriterOptions } from "./csv/CsvWriter.ts";
 import type { ProjectFile } from "./model/Project.ts";
 
 export async function readMpp(path: string): Promise<ProjectFile> {
@@ -27,6 +29,10 @@ export function writeJson(project: ProjectFile, options?: { pretty?: boolean }):
   return new JsonWriter().write(project, options);
 }
 
+export function writeCsv(project: ProjectFile, options?: CsvWriterOptions): string {
+  return new CsvWriter().write(project, options);
+}
+
 // Types
 export type { ProjectFile } from "./model/Project.ts";
 export type { ProjectProperties } from "./model/types.ts";
@@ -41,6 +47,8 @@ export { Duration } from "./model/Duration.ts";
 export { JsonReader } from "./json/JsonReader.ts";
 export { JsonWriter } from "./json/JsonWriter.ts";
 export type { JsonWriterOptions } from "./json/JsonWriter.ts";
+export { CsvWriter } from "./csv/CsvWriter.ts";
+export type { CsvWriterOptions } from "./csv/CsvWriter.ts";
 
 // Enums
 export { TimeUnit, RelationType, ResourceType, ConstraintType, Priority } from "./model/types.ts";
