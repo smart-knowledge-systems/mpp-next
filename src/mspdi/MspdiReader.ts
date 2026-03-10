@@ -79,6 +79,14 @@ interface TaskNode {
   BaselineStart?: string;
   BaselineFinish?: string;
   BaselineDuration?: string;
+  FreeSlack?: string;
+  TotalSlack?: string;
+  EarlyStart?: string;
+  EarlyFinish?: string;
+  LateStart?: string;
+  LateFinish?: string;
+  LevelingDelay?: string;
+  Deadline?: string;
   PredecessorLink?: PredecessorNode | PredecessorNode[];
 }
 
@@ -108,6 +116,8 @@ interface AssignmentNode {
   Units?: string;
   Start?: string;
   Finish?: string;
+  ActualWork?: string;
+  RemainingWork?: string;
 }
 
 export class MspdiReader {
@@ -220,6 +230,15 @@ export class MspdiReader {
       baselineFinish: parseDate(node.BaselineFinish),
       baselineDuration: parseXsdDuration(node.BaselineDuration, durationContext),
       constraintType: null,
+      freeSlack: parseXsdDuration(node.FreeSlack, durationContext),
+      totalSlack: parseXsdDuration(node.TotalSlack, durationContext),
+      earlyStart: parseDate(node.EarlyStart),
+      earlyFinish: parseDate(node.EarlyFinish),
+      lateStart: parseDate(node.LateStart),
+      lateFinish: parseDate(node.LateFinish),
+      levelingDelay: parseXsdDuration(node.LevelingDelay, durationContext),
+      deadline: parseDate(node.Deadline),
+      splits: null,
       predecessors,
     };
   }
@@ -238,6 +257,7 @@ export class MspdiReader {
       maxUnits: parseUnits(node.MaxUnits),
       cost: parseNumber(node.Cost),
       work: parseXsdDuration(node.Work, durationContext),
+      resourcePool: null,
     };
   }
 
@@ -252,6 +272,8 @@ export class MspdiReader {
       units: parseUnits(node.Units),
       start: parseDate(node.Start),
       finish: parseDate(node.Finish),
+      actualWork: parseXsdDuration(node.ActualWork, durationContext),
+      remainingWork: parseXsdDuration(node.RemainingWork, durationContext),
     };
   }
 }

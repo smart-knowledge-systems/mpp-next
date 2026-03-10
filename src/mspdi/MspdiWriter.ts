@@ -121,6 +121,14 @@ export class MspdiWriter {
     lines.push(
       tag("BaselineDuration", formatXsdDuration(task.baselineDuration, durationContext), 3),
     );
+    lines.push(tag("FreeSlack", formatXsdDuration(task.freeSlack, durationContext), 3));
+    lines.push(tag("TotalSlack", formatXsdDuration(task.totalSlack, durationContext), 3));
+    lines.push(tag("EarlyStart", formatDate(task.earlyStart), 3));
+    lines.push(tag("EarlyFinish", formatDate(task.earlyFinish), 3));
+    lines.push(tag("LateStart", formatDate(task.lateStart), 3));
+    lines.push(tag("LateFinish", formatDate(task.lateFinish), 3));
+    lines.push(tag("LevelingDelay", formatXsdDuration(task.levelingDelay, durationContext), 3));
+    lines.push(tag("Deadline", formatDate(task.deadline), 3));
     for (const predecessor of task.predecessors) {
       const lag = formatLinkLag(predecessor.lag, durationContext);
       lines.push("      <PredecessorLink>");
@@ -165,6 +173,8 @@ export class MspdiWriter {
       tag("Units", formatUnits(assignment.units), 3),
       tag("Start", formatDate(assignment.start), 3),
       tag("Finish", formatDate(assignment.finish), 3),
+      tag("ActualWork", formatXsdDuration(assignment.actualWork, durationContext), 3),
+      tag("RemainingWork", formatXsdDuration(assignment.remainingWork, durationContext), 3),
       "    </Assignment>",
     ];
   }
