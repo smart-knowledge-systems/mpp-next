@@ -24,6 +24,7 @@ export interface Task {
   baselineStart: Date | null;
   baselineFinish: Date | null;
   baselineDuration: Duration | null;
+  actualWork: Duration | null;
   constraintType: ConstraintType | null;
   // Scheduling analysis
   freeSlack: Duration | null;
