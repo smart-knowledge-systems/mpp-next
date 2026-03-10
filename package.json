@@ -1,0 +1,25 @@
+{
+  "name": "mpp-next",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint --cache --cache-location node_modules/.cache/eslint/ .",
+    "lint:fix": "eslint --cache --cache-location node_modules/.cache/eslint/ . --fix",
+    "format": "prettier -l --cache --cache-location node_modules/.cache/prettier/ --write .",
+    "format:check": "prettier --cache --cache-location node_modules/.cache/prettier/ --check .",
+    "check": "bun run typecheck && bun run lint && bun run format:check"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/bun": "latest",
+    "@typescript-eslint/eslint-plugin": "^8.57.0",
+    "@typescript-eslint/parser": "^8.57.0",
+    "eslint": "^10.0.3",
+    "prettier": "^3.8.1"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
