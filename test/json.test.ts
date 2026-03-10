@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
+import { JsonReader } from "../src/json/JsonReader.ts";
 import { JsonWriter } from "../src/json/JsonWriter.ts";
 import { Duration } from "../src/model/Duration.ts";
 import { createEmptyProject } from "../src/model/Project.ts";
@@ -496,5 +497,265 @@ describe("JsonWriter", () => {
     expect(task["duration"]).toEqual({ duration: 30, units: "minutes" });
     expect(task["work"]).toEqual({ duration: 2, units: "weeks" });
     expect(task["baselineDuration"]).toEqual({ duration: 3, units: "months" });
+  });
+});
+
+describe("JsonReader", () => {
+  const reader = new JsonReader();
+  const writer = new JsonWriter();
+
+  test("reads a minimal empty project", () => {
+    const project = reader.read("{}");
+    expect(project.properties.title).toBeNull();
+    expect(project.properties.minutesPerDay).toBe(480);
+    expect(project.tasks).toEqual([]);
+    expect(project.resources).toEqual([]);
+    expect(project.assignments).toEqual([]);
+    expect(project.calendars).toEqual([]);
+  });
+
+  test("reads properties", () => {
+    const json = JSON.stringify({
+      properties: {
+        title: "Test",
+        author: "Author",
+        startDate: "2024-06-01T08:00:00",
+        minutesPerDay: 960,
+        saveVersion: 14,
+      },
+    });
+    const project = reader.read(json);
+    expect(project.properties.title).toBe("Test");
+    expect(project.properties.author).toBe("Author");
+    expect(project.properties.startDate).toBeInstanceOf(Date);
+    expect(project.properties.minutesPerDay).toBe(960);
+    expect(project.properties.saveVersion).toBe(14);
+  });
+
+  test("reads Duration objects from {duration, units} format", () => {
+    const json = JSON.stringify({
+      tasks: [
+        {
+          id: 1,
+          uniqueId: 1,
+          name: "Task",
+          duration: { duration: 8, units: "hours" },
+          work: { duration: 5, units: "days" },
+          predecessors: [],
+        },
+      ],
+    });
+    const project = reader.read(json);
+    const task = project.tasks[0]!;
+    expect(task.duration).toBeInstanceOf(Duration);
+    expect(task.duration!.value).toBe(8);
+    expect(task.duration!.unit).toBe(TimeUnit.Hours);
+    expect(task.work!.value).toBe(5);
+    expect(task.work!.unit).toBe(TimeUnit.Days);
+  });
+
+  test("reads Date strings back to Date objects", () => {
+    const json = JSON.stringify({
+      tasks: [
+        {
+          id: 1,
+          uniqueId: 1,
+          name: "Task",
+          start: "2024-03-15T09:00:00",
+          finish: "2024-03-15T17:00:00",
+          predecessors: [],
+        },
+      ],
+    });
+    const project = reader.read(json);
+    const task = project.tasks[0]!;
+    expect(task.start).toBeInstanceOf(Date);
+    expect(task.finish).toBeInstanceOf(Date);
+  });
+
+  test("preserves null fields", () => {
+    const json = JSON.stringify({
+      tasks: [
+        {
+          id: null,
+          name: null,
+          duration: null,
+          start: null,
+          predecessors: [],
+        },
+      ],
+    });
+    const project = reader.read(json);
+    const task = project.tasks[0]!;
+    expect(task.id).toBeNull();
+    expect(task.name).toBeNull();
+    expect(task.duration).toBeNull();
+    expect(task.start).toBeNull();
+  });
+
+  test("reads relations with type and lag", () => {
+    const json = JSON.stringify({
+      tasks: [
+        {
+          id: 2,
+          uniqueId: 2,
+          name: "Successor",
+          predecessors: [
+            {
+              predecessorUniqueId: 1,
+              successorUniqueId: 2,
+              type: "SS",
+              lag: { duration: 2, units: "days" },
+            },
+          ],
+        },
+      ],
+    });
+    const project = reader.read(json);
+    const rel = project.tasks[0]!.predecessors[0]!;
+    expect(rel.type).toBe(RelationType.StartToStart);
+    expect(rel.lag!.value).toBe(2);
+    expect(rel.lag!.unit).toBe(TimeUnit.Days);
+  });
+
+  test("reads resources with type and pool", () => {
+    const json = JSON.stringify({
+      resources: [
+        {
+          id: 1,
+          uniqueId: 1,
+          name: "Crane",
+          type: "Material",
+          resourcePool: "Equipment Pool",
+        },
+      ],
+    });
+    const project = reader.read(json);
+    const res = project.resources[0]!;
+    expect(res.type).toBe(ResourceType.Material);
+    expect(res.resourcePool).toBe("Equipment Pool");
+  });
+
+  test("reads assignments with work fields", () => {
+    const json = JSON.stringify({
+      assignments: [
+        {
+          taskUniqueId: 1,
+          resourceUniqueId: 2,
+          work: { duration: 16, units: "hours" },
+          units: 100,
+          actualWork: { duration: 8, units: "hours" },
+          remainingWork: { duration: 8, units: "hours" },
+        },
+      ],
+    });
+    const project = reader.read(json);
+    const assn = project.assignments[0]!;
+    expect(assn.actualWork!.value).toBe(8);
+    expect(assn.remainingWork!.value).toBe(8);
+  });
+
+  test("reads calendars with weekdays and exceptions", () => {
+    const json = JSON.stringify({
+      calendars: [
+        {
+          uniqueId: 1,
+          name: "Standard",
+          weekDays: [
+            { dayType: 2, working: true, workingTimes: [{ from: "09:00:00", to: "17:00:00" }] },
+          ],
+          exceptions: [{ name: "Holiday", fromDate: "2024-12-25T00:00:00", working: false }],
+        },
+      ],
+    });
+    const project = reader.read(json);
+    const cal = project.calendars[0]!;
+    expect(cal.weekDays[0]!.dayType).toBe(2);
+    expect(cal.weekDays[0]!.working).toBe(true);
+    expect(cal.exceptions[0]!.name).toBe("Holiday");
+    expect(cal.exceptions[0]!.fromDate).toBeInstanceOf(Date);
+  });
+
+  test("reads scheduling fields on tasks", () => {
+    const json = JSON.stringify({
+      tasks: [
+        {
+          id: 1,
+          uniqueId: 1,
+          name: "Task",
+          freeSlack: { duration: 0, units: "minutes" },
+          totalSlack: { duration: 480, units: "minutes" },
+          earlyStart: "2024-01-15T08:00:00",
+          lateFinish: "2024-01-20T17:00:00",
+          deadline: "2024-01-25T00:00:00",
+          predecessors: [],
+        },
+      ],
+    });
+    const project = reader.read(json);
+    const task = project.tasks[0]!;
+    expect(task.freeSlack!.value).toBe(0);
+    expect(task.totalSlack!.value).toBe(480);
+    expect(task.earlyStart).toBeInstanceOf(Date);
+    expect(task.lateFinish).toBeInstanceOf(Date);
+    expect(task.deadline).toBeInstanceOf(Date);
+  });
+
+  test("full round-trip: write then read preserves data", () => {
+    const original = createEmptyProject();
+    original.properties.title = "Round Trip";
+    original.properties.startDate = new Date(2024, 5, 1, 8, 0, 0);
+    original.tasks = [
+      {
+        id: 1,
+        uniqueId: 1,
+        name: "Task A",
+        wbs: "1",
+        outlineLevel: 1,
+        start: new Date(2024, 5, 1, 8, 0, 0),
+        finish: new Date(2024, 5, 1, 17, 0, 0),
+        duration: Duration.from(8, TimeUnit.Hours),
+        percentComplete: 50,
+        summary: false,
+        milestone: false,
+        critical: true,
+        notes: null,
+        priority: 500,
+        cost: 1000,
+        work: Duration.from(8, TimeUnit.Hours),
+        actualStart: null,
+        actualFinish: null,
+        baselineStart: null,
+        baselineFinish: null,
+        baselineDuration: null,
+        actualWork: null,
+        constraintType: null,
+        freeSlack: Duration.from(0, TimeUnit.Minutes),
+        totalSlack: Duration.from(0, TimeUnit.Minutes),
+        earlyStart: new Date(2024, 5, 1, 8, 0, 0),
+        earlyFinish: new Date(2024, 5, 1, 17, 0, 0),
+        lateStart: new Date(2024, 5, 1, 8, 0, 0),
+        lateFinish: new Date(2024, 5, 1, 17, 0, 0),
+        levelingDelay: null,
+        deadline: null,
+        splits: null,
+        predecessors: [],
+      },
+    ];
+
+    const json = writer.write(original);
+    const restored = reader.read(json);
+
+    expect(restored.properties.title).toBe("Round Trip");
+    expect(restored.tasks.length).toBe(1);
+    const task = restored.tasks[0]!;
+    expect(task.name).toBe("Task A");
+    expect(task.duration!.value).toBe(8);
+    expect(task.duration!.unit).toBe(TimeUnit.Hours);
+    expect(task.percentComplete).toBe(50);
+    expect(task.critical).toBe(true);
+    expect(task.cost).toBe(1000);
+    expect(task.freeSlack!.value).toBe(0);
+    expect(task.earlyStart).toBeInstanceOf(Date);
   });
 });
