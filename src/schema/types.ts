@@ -6,10 +6,10 @@ import {
   ConstraintType,
 } from "../model/types.ts";
 
-export const TimeUnitSchema = z.nativeEnum(TimeUnit);
+export const TimeUnitSchema = z.enum(TimeUnit);
 
-export const RelationTypeSchema = z.nativeEnum(RelationType);
+export const RelationTypeSchema = z.enum(RelationType);
 
-export const ResourceTypeSchema = z.nativeEnum(ResourceType);
+export const ResourceTypeSchema = z.enum(ResourceType);
 
-export const ConstraintTypeSchema = z.nativeEnum(ConstraintType);
+export const ConstraintTypeSchema = z.enum(ConstraintType);
