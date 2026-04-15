@@ -9,3 +9,5 @@ export const RelationSchema = z.object({
   type: RelationTypeSchema,
   lag: NullableDurationSchema,
 });
+
+export type Relation = z.infer<typeof RelationSchema>;

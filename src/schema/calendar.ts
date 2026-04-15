@@ -26,3 +26,8 @@ export const CalendarSchema = z.object({
   weekDays: z.array(CalendarWeekDaySchema),
   exceptions: z.array(CalendarExceptionSchema),
 });
+
+export type WorkingTimeRange = z.infer<typeof WorkingTimeRangeSchema>;
+export type CalendarWeekDay = z.infer<typeof CalendarWeekDaySchema>;
+export type CalendarException = z.infer<typeof CalendarExceptionSchema>;
+export type Calendar = z.infer<typeof CalendarSchema>;

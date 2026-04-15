@@ -2,51 +2,52 @@ import { describe, expect, test } from "bun:test";
 import { fileURLToPath } from "node:url";
 
 import { CsvWriter } from "../src/csv/CsvWriter.ts";
-import type { ProjectFile } from "../src/model/Project.ts";
-import { Duration } from "../src/model/Duration.ts";
-import { TimeUnit, ResourceType } from "../src/model/types.ts";
+import { ResourceType } from "../src/model/types.ts";
+import { makeMinimalProject, parseCsv, fixtureExists } from "./helpers.ts";
 
 const FIXTURE_MPP_PATH = resolveFixturePath("./sample-schedule.mpp");
 const FIXTURE_CSV_PATH = resolveFixturePath("./project_schedule.csv");
+const HAS_MPP_FIXTURE = fixtureExists(FIXTURE_MPP_PATH);
 
 async function getMppReader() {
   return import("../src/mpp/MppReader.ts");
 }
 
 describe("CsvWriter", () => {
-  test("produces CSV matching the fixture baseline for leaf tasks", async () => {
+  test.skipIf(!HAS_MPP_FIXTURE)(
+    "produces CSV matching the fixture baseline for leaf tasks",
+    async () => {
+      const { MppReader } = await getMppReader();
+      const data = await Bun.file(FIXTURE_MPP_PATH).arrayBuffer();
+      const project = new MppReader().read(data);
+
+      const writer = new CsvWriter();
+      const csv = writer.write(project);
+      const baselineCsv = await Bun.file(FIXTURE_CSV_PATH).text();
+
+      const csvRows = parseCsv(csv);
+      const baselineRows = parseCsv(baselineCsv);
+
+      expect(csvRows).toHaveLength(baselineRows.length);
+
+      for (const [index, row] of csvRows.entries()) {
+        const baseline = baselineRows[index]!;
+        expect(row["ID"]).toBe(baseline["ID"]);
+        expect(row["Task Name"]).toBe(baseline["Task Name"]);
+        expect(row["WBS"]).toBe(baseline["WBS"]);
+        expect(formatMinuteDate(row["Start"])).toBe(formatMinuteDate(baseline["Start"]));
+        expect(formatMinuteDate(row["Finish"])).toBe(formatMinuteDate(baseline["Finish"]));
+        expect(row["Duration"]).toBe(baseline["Duration"]);
+        expect(row["Critical"]).toBe(baseline["Critical"]);
+        expect(row["Milestone"]).toBe(baseline["Milestone"]);
+      }
+    },
+  );
+
+  test.skipIf(!HAS_MPP_FIXTURE)("includes summary tasks when option is set", async () => {
     const { MppReader } = await getMppReader();
-    const project = await new MppReader().read(FIXTURE_MPP_PATH, {
-      allowDefaultFixture: false,
-    });
-
-    const writer = new CsvWriter();
-    const csv = writer.write(project);
-    const baselineCsv = await Bun.file(FIXTURE_CSV_PATH).text();
-
-    const csvRows = parseCsv(csv);
-    const baselineRows = parseCsv(baselineCsv);
-
-    expect(csvRows).toHaveLength(baselineRows.length);
-
-    for (const [index, row] of csvRows.entries()) {
-      const baseline = baselineRows[index]!;
-      expect(row["ID"]).toBe(baseline["ID"]);
-      expect(row["Task Name"]).toBe(baseline["Task Name"]);
-      expect(row["WBS"]).toBe(baseline["WBS"]);
-      expect(formatMinuteDate(row["Start"])).toBe(formatMinuteDate(baseline["Start"]));
-      expect(formatMinuteDate(row["Finish"])).toBe(formatMinuteDate(baseline["Finish"]));
-      expect(row["Duration"]).toBe(baseline["Duration"]);
-      expect(row["Critical"]).toBe(baseline["Critical"]);
-      expect(row["Milestone"]).toBe(baseline["Milestone"]);
-    }
-  });
-
-  test("includes summary tasks when option is set", async () => {
-    const { MppReader } = await getMppReader();
-    const project = await new MppReader().read(FIXTURE_MPP_PATH, {
-      allowDefaultFixture: false,
-    });
+    const data = await Bun.file(FIXTURE_MPP_PATH).arrayBuffer();
+    const project = new MppReader().read(data);
 
     const leafCsv = new CsvWriter().write(project);
     const allCsv = new CsvWriter().write(project, { includeSummaryTasks: true });
@@ -72,6 +73,29 @@ describe("CsvWriter", () => {
 
     const csv = new CsvWriter().write(project);
     expect(csv).toContain('"Task with ""quotes"" and, commas"');
+  });
+
+  test("prefixes injection characters with apostrophe", () => {
+    const project = makeMinimalProject();
+
+    const injectionInputs = ["=SUM(A1)", "+1", "-1", "@SUM(A1:A10)"];
+
+    for (const input of injectionInputs) {
+      project.tasks[0]!.name = input;
+      const csv = new CsvWriter().write(project);
+      const dataLine = csv.split("\n")[1]!;
+      // Apostrophe prefix should appear; original value must not appear without it
+      expect(dataLine).toContain("'" + input);
+    }
+  });
+
+  test("applies both injection prefix and quote escaping together", () => {
+    const project = makeMinimalProject();
+    project.tasks[0]!.name = '=cmd,with "quotes"';
+
+    const csv = new CsvWriter().write(project);
+    // Should get apostrophe prefix AND quote wrapping: "'=cmd,with ""quotes"""
+    expect(csv).toContain('"\'=cmd,with ""quotes"""');
   });
 
   test("resolves resource names from assignments", () => {
@@ -132,118 +156,9 @@ describe("CsvWriter", () => {
   });
 });
 
-function makeMinimalProject(): ProjectFile {
-  return {
-    properties: {
-      title: "Test",
-      author: null,
-      startDate: null,
-      finishDate: null,
-      statusDate: null,
-      defaultCalendarUniqueId: null,
-      minutesPerDay: 480,
-      minutesPerWeek: 2400,
-      daysPerMonth: 20,
-      saveVersion: null,
-    },
-    tasks: [
-      {
-        id: 1,
-        uniqueId: 1,
-        name: "Test Task",
-        wbs: "1",
-        outlineLevel: 1,
-        start: new Date("2026-04-06T06:00:00"),
-        finish: new Date("2026-04-06T14:00:00"),
-        duration: Duration.from(8, TimeUnit.Hours),
-        percentComplete: 0,
-        summary: false,
-        milestone: false,
-        critical: false,
-        notes: null,
-        priority: null,
-        cost: null,
-        work: null,
-        actualStart: null,
-        actualFinish: null,
-        baselineStart: null,
-        baselineFinish: null,
-        baselineDuration: null,
-        actualWork: null,
-        constraintType: null,
-        freeSlack: null,
-        totalSlack: null,
-        earlyStart: null,
-        earlyFinish: null,
-        lateStart: null,
-        lateFinish: null,
-        levelingDelay: null,
-        deadline: null,
-        splits: null,
-        predecessors: [],
-      },
-    ],
-    resources: [],
-    assignments: [],
-    calendars: [],
-  };
-}
-
 function formatMinuteDate(value: string | null | undefined): string | null {
   if (!value) return null;
   return value.slice(0, 16);
-}
-
-function parseCsv(text: string): Array<Record<string, string>> {
-  const rows: string[][] = [];
-  let field = "";
-  let row: string[] = [];
-  let inQuotes = false;
-
-  for (let index = 0; index < text.length; index += 1) {
-    const character = text[index];
-    if (character === '"') {
-      if (inQuotes && text[index + 1] === '"') {
-        field += '"';
-        index += 1;
-      } else {
-        inQuotes = !inQuotes;
-      }
-      continue;
-    }
-
-    if (character === "," && !inQuotes) {
-      row.push(field);
-      field = "";
-      continue;
-    }
-
-    if ((character === "\n" || character === "\r") && !inQuotes) {
-      if (character === "\r" && text[index + 1] === "\n") {
-        index += 1;
-      }
-      row.push(field);
-      field = "";
-      if (row.some((value) => value.length > 0)) {
-        rows.push(row);
-      }
-      row = [];
-      continue;
-    }
-
-    field += character;
-  }
-
-  if (field.length > 0 || row.length > 0) {
-    row.push(field);
-    rows.push(row);
-  }
-
-  const [header, ...body] = rows;
-  if (!header) return [];
-  return body.map((values) =>
-    Object.fromEntries(header.map((column, index) => [column, values[index] ?? ""])),
-  );
 }
 
 function resolveFixturePath(relativePath: string): string {

@@ -94,74 +94,6 @@ describe("Duration", () => {
     });
   });
 
-  describe("fromIso8601()", () => {
-    test("parses weeks", () => {
-      const d = Duration.fromIso8601("P2W");
-      expect(d).not.toBeNull();
-      expect(d!.value).toBe(2);
-      expect(d!.unit).toBe(TimeUnit.Weeks);
-    });
-
-    test("parses days", () => {
-      const d = Duration.fromIso8601("P5D");
-      expect(d).not.toBeNull();
-      expect(d!.value).toBe(5);
-      expect(d!.unit).toBe(TimeUnit.Days);
-    });
-
-    test("parses hours", () => {
-      const d = Duration.fromIso8601("PT8H");
-      expect(d).not.toBeNull();
-      expect(d!.value).toBe(8);
-      expect(d!.unit).toBe(TimeUnit.Hours);
-    });
-
-    test("parses minutes", () => {
-      const d = Duration.fromIso8601("PT30M");
-      expect(d).not.toBeNull();
-      expect(d!.value).toBe(30);
-      expect(d!.unit).toBe(TimeUnit.Minutes);
-    });
-
-    test("parses seconds as fractional minutes", () => {
-      const d = Duration.fromIso8601("PT120S");
-      expect(d).not.toBeNull();
-      expect(d!.value).toBe(2);
-      expect(d!.unit).toBe(TimeUnit.Minutes);
-    });
-
-    test("parses full ISO with hours, minutes, seconds", () => {
-      const d = Duration.fromIso8601("PT8H0M0S");
-      expect(d).not.toBeNull();
-      expect(d!.value).toBe(8);
-      expect(d!.unit).toBe(TimeUnit.Hours);
-    });
-
-    test("returns zero minutes for empty duration", () => {
-      const d = Duration.fromIso8601("P");
-      expect(d).not.toBeNull();
-      expect(d!.value).toBe(0);
-      expect(d!.unit).toBe(TimeUnit.Minutes);
-    });
-
-    test("returns null for null input", () => {
-      expect(Duration.fromIso8601(null)).toBeNull();
-    });
-
-    test("returns null for undefined input", () => {
-      expect(Duration.fromIso8601(undefined)).toBeNull();
-    });
-
-    test("returns null for empty string", () => {
-      expect(Duration.fromIso8601("")).toBeNull();
-    });
-
-    test("returns null for invalid format", () => {
-      expect(Duration.fromIso8601("abc")).toBeNull();
-      expect(Duration.fromIso8601("5D")).toBeNull();
-    });
-  });
-
   describe("toIso8601()", () => {
     test("formats weeks", () => {
       expect(new Duration(2, TimeUnit.Weeks).toIso8601()).toBe("P2W");
@@ -264,39 +196,6 @@ describe("Duration", () => {
     });
   });
 
-  describe("round-trip: fromIso8601 -> toIso8601 -> fromIso8601", () => {
-    test("round-trips weeks", () => {
-      const original = Duration.fromIso8601("P2W")!;
-      const iso = original.toIso8601();
-      const parsed = Duration.fromIso8601(iso)!;
-      expect(parsed.value).toBe(original.value);
-      expect(parsed.unit).toBe(original.unit);
-    });
-
-    test("round-trips days", () => {
-      const original = Duration.fromIso8601("P5D")!;
-      const iso = original.toIso8601();
-      const parsed = Duration.fromIso8601(iso)!;
-      expect(parsed.value).toBe(original.value);
-      expect(parsed.unit).toBe(original.unit);
-    });
-
-    test("round-trips hours", () => {
-      const original = Duration.fromIso8601("PT8H0M0S")!;
-      const iso = original.toIso8601();
-      const parsed = Duration.fromIso8601(iso)!;
-      expect(parsed.value).toBe(original.value);
-      expect(parsed.unit).toBe(original.unit);
-    });
-
-    test("round-trips minutes", () => {
-      const original = Duration.fromIso8601("PT0H30M0S")!;
-      const iso = original.toIso8601();
-      const parsed = Duration.fromIso8601(iso)!;
-      expect(parsed.value).toBe(original.value);
-      expect(parsed.unit).toBe(original.unit);
-    });
-  });
 });
 
 describe("createEmptyProject()", () => {

@@ -5,7 +5,7 @@ export interface PropsSummary {
   version: number;
   propertyCount: number;
   rawLength: number;
-  utf16Preview: string[];
+  readonly utf16Preview: string[];
 }
 
 export class Props {
@@ -47,6 +47,7 @@ export class Props {
       foundCount += 1;
     }
 
+    const capturedRaw = raw;
     return new Props(
       raw,
       {
@@ -54,7 +55,9 @@ export class Props {
         version: raw.length >= 8 ? MppUtility.getUInt(raw, 4) : 0,
         propertyCount,
         rawLength: raw.length,
-        utf16Preview: extractUtf16Strings(raw).slice(0, 8),
+        get utf16Preview(): string[] {
+          return extractUtf16Strings(capturedRaw).slice(0, 8);
+        },
       },
       values,
     );

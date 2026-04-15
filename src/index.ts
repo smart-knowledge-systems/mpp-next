@@ -60,6 +60,7 @@ export { CsvWriter } from "./csv/CsvWriter.ts";
 export type { CsvWriterOptions } from "./csv/CsvWriter.ts";
 export { XlsxWriter } from "./xlsx/XlsxWriter.ts";
 export type { XlsxWriterOptions } from "./xlsx/XlsxWriter.ts";
+export type { MspdiWriterOptions } from "./mspdi/MspdiWriter.ts";
 
 // Enums
 export { TimeUnit, RelationType, ResourceType, ConstraintType, Priority } from "./model/types.ts";

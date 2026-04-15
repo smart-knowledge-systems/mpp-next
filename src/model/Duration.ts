@@ -86,17 +86,17 @@ export class Duration {
   toIso8601(): string {
     switch (this.unit) {
       case TimeUnit.Weeks:
-        return `P${trimNumber(this.value)}W`;
+        return `P${String(this.value)}W`;
       case TimeUnit.Days:
-        return `P${trimNumber(this.value)}D`;
+        return `P${String(this.value)}D`;
       case TimeUnit.Hours:
-        return `PT${trimNumber(this.value)}H0M0S`;
+        return `PT${String(this.value)}H0M0S`;
       case TimeUnit.Minutes:
-        return `PT0H${trimNumber(this.value)}M0S`;
+        return `PT0H${String(this.value)}M0S`;
       case TimeUnit.Months:
-        return `P${trimNumber(this.value)}M`;
+        return `P${String(this.value)}M`;
       case TimeUnit.Percent:
-        return `PT${trimNumber(this.value)}M0S`;
+        return `PT${String(this.value)}M0S`;
     }
   }
 
@@ -117,8 +117,4 @@ export class Duration {
         return `${value}%`;
     }
   }
-}
-
-function trimNumber(value: number): string {
-  return Number.isInteger(value) ? String(value) : String(value);
 }

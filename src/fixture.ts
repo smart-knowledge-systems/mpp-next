@@ -96,9 +96,9 @@ function mapProperties(input: FixtureProjectData["project"]): ProjectProperties 
   return {
     title: input.title,
     author: input.author,
-    startDate: parseDate(input.start_date),
-    finishDate: parseDate(input.finish_date),
-    statusDate: parseDate(input.status_date),
+    startDate: parseProjectDate(input.start_date),
+    finishDate: parseProjectDate(input.finish_date),
+    statusDate: parseProjectDate(input.status_date),
     defaultCalendarUniqueId: null,
     minutesPerDay: 480,
     minutesPerWeek: 2400,
@@ -114,8 +114,8 @@ function mapTask(input: FixtureTask): Task {
     name: input.name,
     wbs: input.wbs,
     outlineLevel: input.outline_level,
-    start: parseDate(input.start),
-    finish: parseDate(input.finish),
+    start: parseProjectDate(input.start),
+    finish: parseProjectDate(input.finish),
     duration: Duration.parseSimple(input.duration),
     percentComplete: parseNumber(input.percent_complete),
     summary: input.summary,
@@ -125,10 +125,10 @@ function mapTask(input: FixtureTask): Task {
     priority: parsePriority(input.priority),
     cost: parseNumber(input.cost),
     work: Duration.parseSimple(input.work),
-    actualStart: parseDate(input.actual_start),
-    actualFinish: parseDate(input.actual_finish),
-    baselineStart: parseDate(input.baseline_start),
-    baselineFinish: parseDate(input.baseline_finish),
+    actualStart: parseProjectDate(input.actual_start),
+    actualFinish: parseProjectDate(input.actual_finish),
+    baselineStart: parseProjectDate(input.baseline_start),
+    baselineFinish: parseProjectDate(input.baseline_finish),
     baselineDuration: Duration.parseSimple(input.baseline_duration),
     actualWork: null,
     constraintType: null,
@@ -177,8 +177,8 @@ function mapAssignment(input: FixtureAssignment): Assignment {
     resourceUniqueId: input.resource_unique_id,
     work: Duration.parseSimple(input.work),
     units: parseNumber(input.units),
-    start: parseDate(input.start),
-    finish: parseDate(input.finish),
+    start: parseProjectDate(input.start),
+    finish: parseProjectDate(input.finish),
     actualWork: null,
     remainingWork: null,
   };
@@ -191,10 +191,6 @@ function mapCalendar(input: FixtureCalendar): Calendar {
     weekDays: [],
     exceptions: [],
   };
-}
-
-function parseDate(raw: string | null): Date | null {
-  return parseProjectDate(raw);
 }
 
 function parseNumber(raw: string | null): number | null {

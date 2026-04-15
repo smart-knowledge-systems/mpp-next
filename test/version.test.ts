@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import CFB from "cfb";
@@ -8,6 +9,7 @@ import { detectMppVariant } from "../src/mpp/MppVariant.ts";
 import type { MppContainer } from "../src/mpp/Mpp14Reader.ts";
 
 const FIXTURE_MPP_PATH = resolveFixturePath("./sample-schedule.mpp");
+const HAS_MPP_FIXTURE = existsSync(FIXTURE_MPP_PATH);
 
 function resolveFixturePath(relativePath: string): string {
   return fileURLToPath(new URL(relativePath, import.meta.url));
@@ -93,7 +95,7 @@ describe("error handling: old MPP versions", () => {
 });
 
 describe("sanity: valid MPP14 file", () => {
-  test("a valid MPP14 file still loads successfully", async () => {
+  test.skipIf(!HAS_MPP_FIXTURE)("a valid MPP14 file still loads successfully", async () => {
     const data = await readFixture(FIXTURE_MPP_PATH);
     const reader = new MppReader();
     const project = reader.read(data);
@@ -102,7 +104,7 @@ describe("sanity: valid MPP14 file", () => {
     expect(project.resources.length).toBeGreaterThan(0);
   });
 
-  test("a valid MPP14 file inspects successfully", async () => {
+  test.skipIf(!HAS_MPP_FIXTURE)("a valid MPP14 file inspects successfully", async () => {
     const data = await readFixture(FIXTURE_MPP_PATH);
     const reader = new MppReader();
     const inspection = reader.inspect(data);

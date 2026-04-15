@@ -34,3 +34,8 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # Finder (MacOS) folder config
 .DS_Store
+
+# test fixtures (not committed)
+test/*.mpp
+test/project_data.json
+test/project_schedule.csv

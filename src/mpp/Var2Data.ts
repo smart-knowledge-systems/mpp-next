@@ -27,15 +27,6 @@ export class Var2Data {
     return new Var2Data(raw, meta, blocks);
   }
 
-  getUtf16String(offset: number, byteLength: number): string {
-    const slice = this.raw.subarray(offset, offset + byteLength);
-    return Buffer.from(slice).toString("utf16le").replace(/\0+$/u, "");
-  }
-
-  getBytes(offset: number, byteLength: number): Uint8Array {
-    return this.raw.subarray(offset, offset + byteLength);
-  }
-
   getByteArray(offset: number | null): Uint8Array | null {
     return offset === null ? null : (this.blocks.get(offset) ?? null);
   }

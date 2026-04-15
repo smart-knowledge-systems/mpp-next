@@ -40,3 +40,5 @@ export const TaskSchema = z.object({
   splits: z.nullable(z.array(z.string().transform((val) => new Date(val)))),
   predecessors: z.array(RelationSchema),
 });
+
+export type Task = z.infer<typeof TaskSchema>;

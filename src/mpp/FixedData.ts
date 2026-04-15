@@ -2,22 +2,24 @@ import type { FixedMeta } from "./FixedMeta.ts";
 import { MppUtility } from "./MppUtility.ts";
 
 export class FixedData {
+  private readonly offsetIndex: Map<number, number>;
+
   constructor(
     public readonly raw: Uint8Array,
     private readonly records: Array<Uint8Array | null>,
-    private readonly offsets: number[],
-  ) {}
+    offsets: number[],
+  ) {
+    this.offsetIndex = new Map<number, number>();
+    for (let i = 0; i < offsets.length; i++) {
+      const offset = offsets[i]!;
+      if (!this.offsetIndex.has(offset)) {
+        this.offsetIndex.set(offset, i);
+      }
+    }
+  }
 
   get count(): number {
     return this.records.length;
-  }
-
-  getRecord(index: number): Uint8Array {
-    const record = this.records[index];
-    if (!record) {
-      throw new Error(`No fixed data record at index ${index}`);
-    }
-    return record;
   }
 
   getByteArrayValue(index: number): Uint8Array | null {
@@ -25,11 +27,7 @@ export class FixedData {
   }
 
   getIndexFromOffset(offset: number): number {
-    return this.offsets.indexOf(offset);
-  }
-
-  isValidOffset(offset: number | null | undefined): boolean {
-    return offset !== null && offset !== undefined && this.getIndexFromOffset(offset) !== -1;
+    return this.offsetIndex.get(offset) ?? -1;
   }
 
   static fromMeta(meta: FixedMeta, raw: Uint8Array, maxExpectedSize = 0, minSize = 0): FixedData {

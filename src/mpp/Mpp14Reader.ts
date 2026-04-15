@@ -76,7 +76,9 @@ export class Mpp14Reader {
       formatProps: this.variant.formatPropsPath
         ? this.readProps(this.variant.formatPropsPath)
         : null,
-      props14: this.variant.formatPropsPath ? this.readProps(this.variant.formatPropsPath) : null,
+      get props14() {
+        return this.formatProps;
+      },
       taskTable: this.inspectTable(this.variant.taskTablePath),
       resourceTable: this.inspectTable(this.variant.resourceTablePath),
       assignmentTable: this.inspectTable(this.variant.assignmentTablePath),
@@ -674,7 +676,7 @@ function normalizeParent(value: number | null): number | null {
 }
 
 function normalizeResourceId(value: number): number | null {
-  return value <= 0 || value === -65535 ? null : value;
+  return value <= 0 || value === 65535 || value === -65535 ? null : value;
 }
 
 function safeShort(buffer: Uint8Array, offset: number): number | null {

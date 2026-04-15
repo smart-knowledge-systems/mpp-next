@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { existsSync } from "node:fs";
 
 import { Duration } from "../src/model/Duration.ts";
-import { TimeUnit } from "../src/model/types.ts";
+import { TimeUnit, RelationType, ResourceType, ConstraintType } from "../src/model/types.ts";
 import {
   ProjectFileSchema,
   TaskSchema,
@@ -21,9 +22,9 @@ import {
 
 describe("enum schemas", () => {
   test("TimeUnitSchema accepts valid values", () => {
-    expect(TimeUnitSchema.parse("hours")).toBe("hours");
-    expect(TimeUnitSchema.parse("days")).toBe("days");
-    expect(TimeUnitSchema.parse("minutes")).toBe("minutes");
+    expect(TimeUnitSchema.parse("hours")).toBe(TimeUnit.Hours);
+    expect(TimeUnitSchema.parse("days")).toBe(TimeUnit.Days);
+    expect(TimeUnitSchema.parse("minutes")).toBe(TimeUnit.Minutes);
   });
 
   test("TimeUnitSchema rejects invalid values", () => {
@@ -32,10 +33,10 @@ describe("enum schemas", () => {
   });
 
   test("RelationTypeSchema accepts valid values", () => {
-    expect(RelationTypeSchema.parse("FS")).toBe("FS");
-    expect(RelationTypeSchema.parse("SS")).toBe("SS");
-    expect(RelationTypeSchema.parse("FF")).toBe("FF");
-    expect(RelationTypeSchema.parse("SF")).toBe("SF");
+    expect(RelationTypeSchema.parse("FS")).toBe(RelationType.FinishToStart);
+    expect(RelationTypeSchema.parse("SS")).toBe(RelationType.StartToStart);
+    expect(RelationTypeSchema.parse("FF")).toBe(RelationType.FinishToFinish);
+    expect(RelationTypeSchema.parse("SF")).toBe(RelationType.StartToFinish);
   });
 
   test("RelationTypeSchema rejects invalid values", () => {
@@ -43,14 +44,14 @@ describe("enum schemas", () => {
   });
 
   test("ResourceTypeSchema accepts valid values", () => {
-    expect(ResourceTypeSchema.parse("Work")).toBe("Work");
-    expect(ResourceTypeSchema.parse("Material")).toBe("Material");
-    expect(ResourceTypeSchema.parse("Cost")).toBe("Cost");
+    expect(ResourceTypeSchema.parse("Work")).toBe(ResourceType.Work);
+    expect(ResourceTypeSchema.parse("Material")).toBe(ResourceType.Material);
+    expect(ResourceTypeSchema.parse("Cost")).toBe(ResourceType.Cost);
   });
 
   test("ConstraintTypeSchema accepts valid values", () => {
-    expect(ConstraintTypeSchema.parse("ASAP")).toBe("ASAP");
-    expect(ConstraintTypeSchema.parse("MFO")).toBe("MFO");
+    expect(ConstraintTypeSchema.parse("ASAP")).toBe(ConstraintType.AsSoonAsPossible);
+    expect(ConstraintTypeSchema.parse("MFO")).toBe(ConstraintType.MustFinishOn);
   });
 
   test("ConstraintTypeSchema rejects invalid values", () => {
@@ -120,7 +121,7 @@ describe("RelationSchema", () => {
       lag: { duration: 1, units: "days" },
     });
     expect(result.predecessorUniqueId).toBe(1);
-    expect(result.type).toBe("FS");
+    expect(result.type).toBe(RelationType.FinishToStart);
     expect(result.lag).toBeInstanceOf(Duration);
   });
 
@@ -189,7 +190,7 @@ describe("TaskSchema", () => {
     expect(result.duration!.value).toBe(8);
     expect(result.freeSlack).toBeInstanceOf(Duration);
     expect(result.predecessors.length).toBe(1);
-    expect(result.constraintType).toBe("ASAP");
+    expect(result.constraintType).toBe(ConstraintType.AsSoonAsPossible);
   });
 
   test("rejects missing required fields", () => {
@@ -354,9 +355,10 @@ describe("ProjectFileSchema", () => {
     expect(() => ProjectFileSchema.parse(null)).toThrow();
   });
 
-  test("validates JSON round-trip from JsonWriter", async () => {
+  test.skipIf(!existsSync("test/sample-schedule.mpp"))("validates JSON round-trip from JsonWriter", async () => {
     const { readMpp, writeJson } = await import("../src/index.ts");
-    const project = await readMpp("test/sample-schedule.mpp");
+    const data = await Bun.file("test/sample-schedule.mpp").arrayBuffer();
+    const project = readMpp(data);
     const json = writeJson(project);
     const parsed = JSON.parse(json) as unknown;
     const result = ProjectFileSchema.safeParse(parsed);

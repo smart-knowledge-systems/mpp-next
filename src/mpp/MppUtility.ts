@@ -63,9 +63,19 @@ export class MppUtility {
       return null;
     }
 
-    const result = new Date(1983, 11, 31, 0, 0, 0, 0);
-    result.setDate(result.getDate() + days);
-    result.setSeconds(result.getSeconds() + time * 6);
+    // Use UTC arithmetic to avoid DST issues, then construct local Date
+    const baseMs = Date.UTC(1983, 11, 31);
+    const totalSeconds = time * 6;
+    const targetMs = baseMs + days * 86400000 + totalSeconds * 1000;
+    const d = new Date(targetMs);
+    const result = new Date(
+      d.getUTCFullYear(),
+      d.getUTCMonth(),
+      d.getUTCDate(),
+      d.getUTCHours(),
+      d.getUTCMinutes(),
+      d.getUTCSeconds(),
+    );
 
     if (days < 100 && result.getSeconds() !== 0) {
       return null;

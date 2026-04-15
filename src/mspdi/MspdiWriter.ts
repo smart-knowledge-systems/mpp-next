@@ -21,9 +21,9 @@ export class MspdiWriter {
       tag("SaveVersion", String(saveVersion), 1),
       tag("Title", project.properties.title, 1),
       tag("Author", project.properties.author, 1),
-      tag("StartDate", formatDate(project.properties.startDate), 1),
-      tag("FinishDate", formatDate(project.properties.finishDate), 1),
-      tag("StatusDate", formatDate(project.properties.statusDate), 1),
+      tag("StartDate", formatProjectDate(project.properties.startDate), 1),
+      tag("FinishDate", formatProjectDate(project.properties.finishDate), 1),
+      tag("StatusDate", formatProjectDate(project.properties.statusDate), 1),
       tag("MinutesPerDay", nullableNumber(project.properties.minutesPerDay), 1),
       tag("MinutesPerWeek", nullableNumber(project.properties.minutesPerWeek), 1),
       tag("DaysPerMonth", nullableNumber(project.properties.daysPerMonth), 1),
@@ -45,7 +45,7 @@ export class MspdiWriter {
       "</Project>",
     ];
 
-    return lines.filter(Boolean).join("\n");
+    return lines.filter(Boolean).join("\n") + "\n";
   }
 
   private writeCalendar(calendar: Calendar): string[] {
@@ -79,8 +79,8 @@ export class MspdiWriter {
       for (const exception of calendar.exceptions) {
         lines.push("        <Exception>");
         lines.push(tag("Name", exception.name, 5));
-        lines.push(tag("FromDate", formatDate(exception.fromDate), 5));
-        lines.push(tag("ToDate", formatDate(exception.toDate), 5));
+        lines.push(tag("FromDate", formatProjectDate(exception.fromDate), 5));
+        lines.push(tag("ToDate", formatProjectDate(exception.toDate), 5));
         if (exception.working !== null) {
           lines.push(tag("Working", exception.working ? "1" : "0", 5));
         }
@@ -103,8 +103,8 @@ export class MspdiWriter {
     lines.push(tag("Name", task.name, 3));
     lines.push(tag("WBS", task.wbs, 3));
     lines.push(tag("OutlineLevel", nullableNumber(task.outlineLevel), 3));
-    lines.push(tag("Start", formatDate(task.start), 3));
-    lines.push(tag("Finish", formatDate(task.finish), 3));
+    lines.push(tag("Start", formatProjectDate(task.start), 3));
+    lines.push(tag("Finish", formatProjectDate(task.finish), 3));
     lines.push(tag("Duration", formatXsdDuration(task.duration, durationContext), 3));
     lines.push(tag("Work", formatXsdDuration(task.work, durationContext), 3));
     lines.push(tag("ActualWork", formatXsdDuration(task.actualWork, durationContext), 3));
@@ -115,21 +115,21 @@ export class MspdiWriter {
     lines.push(tag("Notes", task.notes, 3));
     lines.push(tag("Priority", nullableNumber(task.priority), 3));
     lines.push(tag("Cost", nullableNumber(task.cost), 3));
-    lines.push(tag("ActualStart", formatDate(task.actualStart), 3));
-    lines.push(tag("ActualFinish", formatDate(task.actualFinish), 3));
-    lines.push(tag("BaselineStart", formatDate(task.baselineStart), 3));
-    lines.push(tag("BaselineFinish", formatDate(task.baselineFinish), 3));
+    lines.push(tag("ActualStart", formatProjectDate(task.actualStart), 3));
+    lines.push(tag("ActualFinish", formatProjectDate(task.actualFinish), 3));
+    lines.push(tag("BaselineStart", formatProjectDate(task.baselineStart), 3));
+    lines.push(tag("BaselineFinish", formatProjectDate(task.baselineFinish), 3));
     lines.push(
       tag("BaselineDuration", formatXsdDuration(task.baselineDuration, durationContext), 3),
     );
     lines.push(tag("FreeSlack", formatXsdDuration(task.freeSlack, durationContext), 3));
     lines.push(tag("TotalSlack", formatXsdDuration(task.totalSlack, durationContext), 3));
-    lines.push(tag("EarlyStart", formatDate(task.earlyStart), 3));
-    lines.push(tag("EarlyFinish", formatDate(task.earlyFinish), 3));
-    lines.push(tag("LateStart", formatDate(task.lateStart), 3));
-    lines.push(tag("LateFinish", formatDate(task.lateFinish), 3));
+    lines.push(tag("EarlyStart", formatProjectDate(task.earlyStart), 3));
+    lines.push(tag("EarlyFinish", formatProjectDate(task.earlyFinish), 3));
+    lines.push(tag("LateStart", formatProjectDate(task.lateStart), 3));
+    lines.push(tag("LateFinish", formatProjectDate(task.lateFinish), 3));
     lines.push(tag("LevelingDelay", formatXsdDuration(task.levelingDelay, durationContext), 3));
-    lines.push(tag("Deadline", formatDate(task.deadline), 3));
+    lines.push(tag("Deadline", formatProjectDate(task.deadline), 3));
     for (const predecessor of task.predecessors) {
       const lag = formatLinkLag(predecessor.lag, durationContext);
       lines.push("      <PredecessorLink>");
@@ -172,8 +172,8 @@ export class MspdiWriter {
       tag("ResourceUID", nullableNumber(assignment.resourceUniqueId), 3),
       tag("Work", formatXsdDuration(assignment.work, durationContext), 3),
       tag("Units", formatUnits(assignment.units), 3),
-      tag("Start", formatDate(assignment.start), 3),
-      tag("Finish", formatDate(assignment.finish), 3),
+      tag("Start", formatProjectDate(assignment.start), 3),
+      tag("Finish", formatProjectDate(assignment.finish), 3),
       tag("ActualWork", formatXsdDuration(assignment.actualWork, durationContext), 3),
       tag("RemainingWork", formatXsdDuration(assignment.remainingWork, durationContext), 3),
       "    </Assignment>",
@@ -196,10 +196,6 @@ function escapeXml(value: string): string {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&apos;");
-}
-
-function formatDate(value: Date | null): string | null {
-  return formatProjectDate(value);
 }
 
 function formatBoolean(value: boolean | null): string | null {

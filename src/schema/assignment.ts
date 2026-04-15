@@ -13,3 +13,5 @@ export const AssignmentSchema = z.object({
   actualWork: NullableDurationSchema,
   remainingWork: NullableDurationSchema,
 });
+
+export type Assignment = z.infer<typeof AssignmentSchema>;

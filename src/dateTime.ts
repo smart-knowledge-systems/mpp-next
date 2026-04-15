@@ -1,5 +1,7 @@
 export function parseProjectDate(raw: string | null | undefined): Date | null {
-  return raw ? new Date(raw) : null;
+  if (!raw) return null;
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 export function formatProjectDate(value: Date | null | undefined): string | null {

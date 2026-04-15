@@ -39,33 +39,5 @@ export enum Priority {
   Highest = 1000,
 }
 
-export interface ProjectProperties {
-  title: string | null;
-  author: string | null;
-  startDate: Date | null;
-  finishDate: Date | null;
-  statusDate: Date | null;
-  defaultCalendarUniqueId: number | null;
-  minutesPerDay: number;
-  minutesPerWeek: number;
-  daysPerMonth: number;
-  saveVersion: number | null;
-}
-
-export interface WorkingTimeRange {
-  from: string;
-  to: string;
-}
-
-export interface CalendarWeekDay {
-  dayType: number;
-  working: boolean;
-  workingTimes: WorkingTimeRange[];
-}
-
-export interface CalendarException {
-  name: string | null;
-  fromDate: Date | null;
-  toDate: Date | null;
-  working: boolean | null;
-}
+export type { ProjectProperties } from "../schema/project.ts";
+export type { WorkingTimeRange, CalendarWeekDay, CalendarException } from "../schema/calendar.ts";

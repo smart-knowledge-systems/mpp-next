@@ -6,31 +6,39 @@ import { MspdiWriter } from "../src/mspdi/MspdiWriter.ts";
 import { formatProjectDate } from "../src/dateTime.ts";
 import { TimeUnit } from "../src/model/types.ts";
 import type { ProjectFile } from "../src/model/Project.ts";
+import { parseCsv, fixtureExists } from "./helpers.ts";
+
 async function getMppReader() {
-  const mod = await import("../src/mpp/MppReader.ts");
-  return mod;
+  return import("../src/mpp/MppReader.ts");
+}
+
+async function readMppFixture(path: string) {
+  const { MppReader } = await getMppReader();
+  const data = await Bun.file(path).arrayBuffer();
+  return new MppReader().read(data);
+}
+
+async function loadMppContainer(path: string) {
+  const { parseMppBuffer } = await getMppReader();
+  const data = await Bun.file(path).arrayBuffer();
+  return parseMppBuffer(data);
 }
 
 const FIXTURE_JSON_PATH = resolveFixturePath("./project_data.json");
 const FIXTURE_MPP_PATH = resolveFixturePath("./sample-schedule.mpp");
 const FIXTURE_CSV_PATH = resolveFixturePath("./project_schedule.csv");
+const HAS_MPP_FIXTURE = fixtureExists(FIXTURE_MPP_PATH);
 
 describe("fixture mapping", () => {
-  test("extracts project data from the mpp binary matching the json baseline", async () => {
-    const { MppReader } = await getMppReader();
-    const project = await new MppReader().read(FIXTURE_MPP_PATH, {
-      allowDefaultFixture: false,
-    });
+  test.skipIf(!HAS_MPP_FIXTURE)("extracts project data from the mpp binary matching the json baseline", async () => {
+    const project = await readMppFixture(FIXTURE_MPP_PATH);
     const expected = JSON.parse(await Bun.file(FIXTURE_JSON_PATH).text()) as SerializedProject;
 
     expect(serializeProject(project)).toEqual(expected);
   });
 
-  test("matches the exported CSV for leaf task schedule rows from the mpp binary", async () => {
-    const { MppReader } = await getMppReader();
-    const project = await new MppReader().read(FIXTURE_MPP_PATH, {
-      allowDefaultFixture: false,
-    });
+  test.skipIf(!HAS_MPP_FIXTURE)("matches the exported CSV for leaf task schedule rows from the mpp binary", async () => {
+    const project = await readMppFixture(FIXTURE_MPP_PATH);
     const leafTasks = project.tasks.filter((task) => task.summary === false && task.id !== null);
     const csvRows = parseCsv(await Bun.file(FIXTURE_CSV_PATH).text());
 
@@ -53,11 +61,8 @@ describe("fixture mapping", () => {
 });
 
 describe("mspdi", () => {
-  test("round-trips the fixture project through MSPDI XML", async () => {
-    const { MppReader } = await getMppReader();
-    const project = await new MppReader().read(FIXTURE_MPP_PATH, {
-      allowDefaultFixture: false,
-    });
+  test.skipIf(!HAS_MPP_FIXTURE)("round-trips the fixture project through MSPDI XML", async () => {
+    const project = await readMppFixture(FIXTURE_MPP_PATH);
     const xml = new MspdiWriter().write(project, { saveVersion: 14 });
     const roundTripped = new MspdiReader().read(xml);
 
@@ -151,13 +156,12 @@ describe("mspdi", () => {
 });
 
 describe("mpp inspection", () => {
-  test("inspects the sample MPP container and reads directly from the binary API", async () => {
+  test.skipIf(!HAS_MPP_FIXTURE)("inspects the sample MPP container and reads directly from the binary API", async () => {
     const { MppReader } = await getMppReader();
+    const data = await Bun.file(FIXTURE_MPP_PATH).arrayBuffer();
     const reader = new MppReader();
-    const inspection = await reader.inspect(FIXTURE_MPP_PATH);
-    const project = await reader.read(FIXTURE_MPP_PATH, {
-      allowDefaultFixture: false,
-    });
+    const inspection = reader.inspect(data);
+    const project = reader.read(data);
 
     expect(inspection.version).toBe(14);
     expect(inspection.rootPath).toBe("Root Entry/   114");
@@ -168,8 +172,8 @@ describe("mpp inspection", () => {
     expect(project.tasks).toHaveLength(70);
   });
 
-  test("detects and reads equivalent modern variants when stream roots are renamed", async () => {
-    const { MppReader, loadMppContainer } = await getMppReader();
+  test.skipIf(!HAS_MPP_FIXTURE)("detects and reads equivalent modern variants when stream roots are renamed", async () => {
+    const { MppReader } = await getMppReader();
     const container = await loadMppContainer(FIXTURE_MPP_PATH);
     const variantContainer = {
       streams: new Map(
@@ -204,59 +208,6 @@ function formatDecimal(value: number | null): string {
   return value === null ? "" : Number.isInteger(value) ? value.toFixed(1) : String(value);
 }
 
-function parseCsv(text: string): Array<Record<string, string>> {
-  const rows: string[][] = [];
-  let field = "";
-  let row: string[] = [];
-  let inQuotes = false;
-
-  for (let index = 0; index < text.length; index += 1) {
-    const character = text[index];
-    if (character === '"') {
-      if (inQuotes && text[index + 1] === '"') {
-        field += '"';
-        index += 1;
-      } else {
-        inQuotes = !inQuotes;
-      }
-      continue;
-    }
-
-    if (character === "," && !inQuotes) {
-      row.push(field);
-      field = "";
-      continue;
-    }
-
-    if ((character === "\n" || character === "\r") && !inQuotes) {
-      if (character === "\r" && text[index + 1] === "\n") {
-        index += 1;
-      }
-      row.push(field);
-      field = "";
-      if (row.some((value) => value.length > 0)) {
-        rows.push(row);
-      }
-      row = [];
-      continue;
-    }
-
-    field += character;
-  }
-
-  if (field.length > 0 || row.length > 0) {
-    row.push(field);
-    rows.push(row);
-  }
-
-  const [header, ...body] = rows;
-  if (!header) {
-    return [];
-  }
-  return body.map((values) =>
-    Object.fromEntries(header.map((column, index) => [column, values[index] ?? ""])),
-  );
-}
 
 function resolveFixturePath(relativePath: string): string {
   return fileURLToPath(new URL(relativePath, import.meta.url));
