@@ -7,12 +7,13 @@ export class FixedData {
   constructor(
     public readonly raw: Uint8Array,
     private readonly records: Array<Uint8Array | null>,
-    private readonly offsets: number[],
+    offsets: number[],
   ) {
     this.offsetIndex = new Map<number, number>();
     for (let i = 0; i < offsets.length; i++) {
-      if (!this.offsetIndex.has(offsets[i])) {
-        this.offsetIndex.set(offsets[i], i);
+      const offset = offsets[i]!;
+      if (!this.offsetIndex.has(offset)) {
+        this.offsetIndex.set(offset, i);
       }
     }
   }

@@ -15,3 +15,5 @@ export const ResourceSchema = z.object({
   work: NullableDurationSchema,
   resourcePool: z.nullable(z.string()),
 });
+
+export type Resource = z.infer<typeof ResourceSchema>;

@@ -26,3 +26,6 @@ export const ProjectFileSchema = z.object({
   assignments: z.array(AssignmentSchema),
   calendars: z.array(CalendarSchema),
 });
+
+export type ProjectProperties = z.infer<typeof ProjectPropertiesSchema>;
+export type ProjectFile = z.infer<typeof ProjectFileSchema>;

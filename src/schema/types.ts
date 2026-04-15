@@ -1,18 +1,15 @@
 import { z } from "zod";
+import {
+  TimeUnit,
+  RelationType,
+  ResourceType,
+  ConstraintType,
+} from "../model/types.ts";
 
-export const TimeUnitSchema = z.enum(["minutes", "hours", "days", "weeks", "months", "percent"]);
+export const TimeUnitSchema = z.nativeEnum(TimeUnit);
 
-export const RelationTypeSchema = z.enum(["FS", "SS", "FF", "SF"]);
+export const RelationTypeSchema = z.nativeEnum(RelationType);
 
-export const ResourceTypeSchema = z.enum(["Material", "Work", "Cost"]);
+export const ResourceTypeSchema = z.nativeEnum(ResourceType);
 
-export const ConstraintTypeSchema = z.enum([
-  "ASAP",
-  "ALAP",
-  "MSO",
-  "MFO",
-  "SNET",
-  "SNLT",
-  "FNET",
-  "FNLT",
-]);
+export const ConstraintTypeSchema = z.nativeEnum(ConstraintType);
