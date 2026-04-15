@@ -3,9 +3,7 @@ import { fileURLToPath } from "node:url";
 import ExcelJS from "exceljs";
 
 import { XlsxWriter } from "../src/xlsx/XlsxWriter.ts";
-import { Duration } from "../src/model/Duration.ts";
-import { TimeUnit } from "../src/model/types.ts";
-import type { ProjectFile } from "../src/model/Project.ts";
+import { makeMinimalProject } from "./helpers.ts";
 
 const FIXTURE_MPP_PATH = resolveFixturePath("./sample-schedule.mpp");
 
@@ -120,63 +118,6 @@ describe("XlsxWriter", () => {
     expect(headerRow.font?.color?.argb).toBe("FFFFFFFF");
   });
 });
-
-function makeMinimalProject(): ProjectFile {
-  return {
-    properties: {
-      title: "Test",
-      author: null,
-      startDate: null,
-      finishDate: null,
-      statusDate: null,
-      defaultCalendarUniqueId: null,
-      minutesPerDay: 480,
-      minutesPerWeek: 2400,
-      daysPerMonth: 20,
-      saveVersion: null,
-    },
-    tasks: [
-      {
-        id: 1,
-        uniqueId: 1,
-        name: "Test Task",
-        wbs: "1",
-        outlineLevel: 1,
-        start: new Date("2026-04-06T06:00:00"),
-        finish: new Date("2026-04-06T14:00:00"),
-        duration: Duration.from(8, TimeUnit.Hours),
-        percentComplete: 0,
-        summary: false,
-        milestone: false,
-        critical: false,
-        notes: null,
-        priority: null,
-        cost: null,
-        work: null,
-        actualStart: null,
-        actualFinish: null,
-        baselineStart: null,
-        baselineFinish: null,
-        baselineDuration: null,
-        actualWork: null,
-        constraintType: null,
-        freeSlack: null,
-        totalSlack: null,
-        earlyStart: null,
-        earlyFinish: null,
-        lateStart: null,
-        lateFinish: null,
-        levelingDelay: null,
-        deadline: null,
-        splits: null,
-        predecessors: [],
-      },
-    ],
-    resources: [],
-    assignments: [],
-    calendars: [],
-  };
-}
 
 function resolveFixturePath(relativePath: string): string {
   return fileURLToPath(new URL(relativePath, import.meta.url));

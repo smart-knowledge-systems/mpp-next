@@ -6,6 +6,7 @@ import { MspdiWriter } from "../src/mspdi/MspdiWriter.ts";
 import { formatProjectDate } from "../src/dateTime.ts";
 import { TimeUnit } from "../src/model/types.ts";
 import type { ProjectFile } from "../src/model/Project.ts";
+import { parseCsv } from "./helpers.ts";
 async function getMppReader() {
   const mod = await import("../src/mpp/MppReader.ts");
   return mod;
@@ -204,59 +205,6 @@ function formatDecimal(value: number | null): string {
   return value === null ? "" : Number.isInteger(value) ? value.toFixed(1) : String(value);
 }
 
-function parseCsv(text: string): Array<Record<string, string>> {
-  const rows: string[][] = [];
-  let field = "";
-  let row: string[] = [];
-  let inQuotes = false;
-
-  for (let index = 0; index < text.length; index += 1) {
-    const character = text[index];
-    if (character === '"') {
-      if (inQuotes && text[index + 1] === '"') {
-        field += '"';
-        index += 1;
-      } else {
-        inQuotes = !inQuotes;
-      }
-      continue;
-    }
-
-    if (character === "," && !inQuotes) {
-      row.push(field);
-      field = "";
-      continue;
-    }
-
-    if ((character === "\n" || character === "\r") && !inQuotes) {
-      if (character === "\r" && text[index + 1] === "\n") {
-        index += 1;
-      }
-      row.push(field);
-      field = "";
-      if (row.some((value) => value.length > 0)) {
-        rows.push(row);
-      }
-      row = [];
-      continue;
-    }
-
-    field += character;
-  }
-
-  if (field.length > 0 || row.length > 0) {
-    row.push(field);
-    rows.push(row);
-  }
-
-  const [header, ...body] = rows;
-  if (!header) {
-    return [];
-  }
-  return body.map((values) =>
-    Object.fromEntries(header.map((column, index) => [column, values[index] ?? ""])),
-  );
-}
 
 function resolveFixturePath(relativePath: string): string {
   return fileURLToPath(new URL(relativePath, import.meta.url));
