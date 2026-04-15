@@ -76,7 +76,9 @@ export class Mpp14Reader {
       formatProps: this.variant.formatPropsPath
         ? this.readProps(this.variant.formatPropsPath)
         : null,
-      props14: this.variant.formatPropsPath ? this.readProps(this.variant.formatPropsPath) : null,
+      get props14() {
+        return this.formatProps;
+      },
       taskTable: this.inspectTable(this.variant.taskTablePath),
       resourceTable: this.inspectTable(this.variant.resourceTablePath),
       assignmentTable: this.inspectTable(this.variant.assignmentTablePath),

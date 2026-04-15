@@ -45,7 +45,7 @@ export class MspdiWriter {
       "</Project>",
     ];
 
-    return lines.filter(Boolean).join("\n");
+    return lines.filter(Boolean).join("\n") + "\n";
   }
 
   private writeCalendar(calendar: Calendar): string[] {

@@ -1,6 +1,7 @@
 import ExcelJS from "exceljs";
 import type { ProjectFile } from "../model/Project.ts";
 import type { Duration } from "../model/Duration.ts";
+import { TimeUnit } from "../model/types.ts";
 
 export interface XlsxWriterOptions {
   /** Worksheet name. Default: "Schedule". */
@@ -28,17 +29,17 @@ function dateToSerial(date: Date): number {
 
 function durationUnitLabel(dur: Duration): string {
   switch (dur.unit) {
-    case "minutes":
+    case TimeUnit.Minutes:
       return '" min"';
-    case "hours":
+    case TimeUnit.Hours:
       return '" hrs"';
-    case "days":
+    case TimeUnit.Days:
       return '" days"';
-    case "weeks":
+    case TimeUnit.Weeks:
       return '" wks"';
-    case "months":
+    case TimeUnit.Months:
       return '" mos"';
-    case "percent":
+    case TimeUnit.Percent:
       return '"%"';
     default:
       return "";
