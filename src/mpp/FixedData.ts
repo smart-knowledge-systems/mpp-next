@@ -12,24 +12,12 @@ export class FixedData {
     return this.records.length;
   }
 
-  getRecord(index: number): Uint8Array {
-    const record = this.records[index];
-    if (!record) {
-      throw new Error(`No fixed data record at index ${index}`);
-    }
-    return record;
-  }
-
   getByteArrayValue(index: number): Uint8Array | null {
     return this.records[index] ?? null;
   }
 
   getIndexFromOffset(offset: number): number {
     return this.offsets.indexOf(offset);
-  }
-
-  isValidOffset(offset: number | null | undefined): boolean {
-    return offset !== null && offset !== undefined && this.getIndexFromOffset(offset) !== -1;
   }
 
   static fromMeta(meta: FixedMeta, raw: Uint8Array, maxExpectedSize = 0, minSize = 0): FixedData {

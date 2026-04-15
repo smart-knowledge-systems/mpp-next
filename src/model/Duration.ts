@@ -44,59 +44,20 @@ export class Duration {
     }
   }
 
-  static fromIso8601(raw: string | null | undefined): Duration | null {
-    if (!raw) {
-      return null;
-    }
-
-    const text = raw.trim();
-    const match =
-      /^P(?:(\d+(?:\.\d+)?)W)?(?:(\d+(?:\.\d+)?)D)?(?:T(?:(\d+(?:\.\d+)?)H)?(?:(\d+(?:\.\d+)?)M)?(?:(\d+(?:\.\d+)?)S)?)?$/i.exec(
-        text,
-      );
-
-    if (!match) {
-      return null;
-    }
-
-    const weeks = Number(match[1] ?? 0);
-    const days = Number(match[2] ?? 0);
-    const hours = Number(match[3] ?? 0);
-    const minutes = Number(match[4] ?? 0);
-    const seconds = Number(match[5] ?? 0);
-
-    if (weeks) {
-      return new Duration(weeks, TimeUnit.Weeks);
-    }
-    if (days) {
-      return new Duration(days, TimeUnit.Days);
-    }
-    if (hours) {
-      return new Duration(hours, TimeUnit.Hours);
-    }
-    if (minutes) {
-      return new Duration(minutes, TimeUnit.Minutes);
-    }
-    if (seconds) {
-      return new Duration(seconds / 60, TimeUnit.Minutes);
-    }
-    return new Duration(0, TimeUnit.Minutes);
-  }
-
   toIso8601(): string {
     switch (this.unit) {
       case TimeUnit.Weeks:
-        return `P${trimNumber(this.value)}W`;
+        return `P${String(this.value)}W`;
       case TimeUnit.Days:
-        return `P${trimNumber(this.value)}D`;
+        return `P${String(this.value)}D`;
       case TimeUnit.Hours:
-        return `PT${trimNumber(this.value)}H0M0S`;
+        return `PT${String(this.value)}H0M0S`;
       case TimeUnit.Minutes:
-        return `PT0H${trimNumber(this.value)}M0S`;
+        return `PT0H${String(this.value)}M0S`;
       case TimeUnit.Months:
-        return `P${trimNumber(this.value)}M`;
+        return `P${String(this.value)}M`;
       case TimeUnit.Percent:
-        return `PT${trimNumber(this.value)}M0S`;
+        return `PT${String(this.value)}M0S`;
     }
   }
 
@@ -117,8 +78,4 @@ export class Duration {
         return `${value}%`;
     }
   }
-}
-
-function trimNumber(value: number): string {
-  return Number.isInteger(value) ? String(value) : String(value);
 }

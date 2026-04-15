@@ -20,14 +20,6 @@ export class VarMeta {
     return this.summary.itemCount;
   }
 
-  getUniqueIdentifierArray(): number[] {
-    return [...this.table.keys()];
-  }
-
-  getUniqueIdentifierSet(): Set<number> {
-    return new Set(this.table.keys());
-  }
-
   getOffset(id: number, type: number): number | null {
     return this.table.get(id)?.get(type) ?? null;
   }
