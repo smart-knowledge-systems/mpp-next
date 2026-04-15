@@ -1,6 +1,12 @@
+import { existsSync } from "node:fs";
 import { Duration } from "../src/model/Duration.ts";
 import { TimeUnit } from "../src/model/types.ts";
 import type { ProjectFile } from "../src/model/Project.ts";
+
+/** Returns true if the given file path exists on disk. */
+export function fixtureExists(path: string): boolean {
+  return existsSync(path);
+}
 
 export function makeMinimalProject(): ProjectFile {
   return {

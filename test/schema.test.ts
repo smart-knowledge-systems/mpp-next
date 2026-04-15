@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { existsSync } from "node:fs";
 
 import { Duration } from "../src/model/Duration.ts";
 import { TimeUnit, RelationType, ResourceType, ConstraintType } from "../src/model/types.ts";
@@ -354,9 +355,10 @@ describe("ProjectFileSchema", () => {
     expect(() => ProjectFileSchema.parse(null)).toThrow();
   });
 
-  test("validates JSON round-trip from JsonWriter", async () => {
+  test.skipIf(!existsSync("test/sample-schedule.mpp"))("validates JSON round-trip from JsonWriter", async () => {
     const { readMpp, writeJson } = await import("../src/index.ts");
-    const project = await readMpp("test/sample-schedule.mpp");
+    const data = await Bun.file("test/sample-schedule.mpp").arrayBuffer();
+    const project = readMpp(data);
     const json = writeJson(project);
     const parsed = JSON.parse(json) as unknown;
     const result = ProjectFileSchema.safeParse(parsed);

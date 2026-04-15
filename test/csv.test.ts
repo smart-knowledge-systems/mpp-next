@@ -3,21 +3,21 @@ import { fileURLToPath } from "node:url";
 
 import { CsvWriter } from "../src/csv/CsvWriter.ts";
 import { ResourceType } from "../src/model/types.ts";
-import { makeMinimalProject, parseCsv } from "./helpers.ts";
+import { makeMinimalProject, parseCsv, fixtureExists } from "./helpers.ts";
 
 const FIXTURE_MPP_PATH = resolveFixturePath("./sample-schedule.mpp");
 const FIXTURE_CSV_PATH = resolveFixturePath("./project_schedule.csv");
+const HAS_MPP_FIXTURE = fixtureExists(FIXTURE_MPP_PATH);
 
 async function getMppReader() {
   return import("../src/mpp/MppReader.ts");
 }
 
 describe("CsvWriter", () => {
-  test("produces CSV matching the fixture baseline for leaf tasks", async () => {
+  test.skipIf(!HAS_MPP_FIXTURE)("produces CSV matching the fixture baseline for leaf tasks", async () => {
     const { MppReader } = await getMppReader();
-    const project = await new MppReader().read(FIXTURE_MPP_PATH, {
-      allowDefaultFixture: false,
-    });
+    const data = await Bun.file(FIXTURE_MPP_PATH).arrayBuffer();
+    const project = new MppReader().read(data);
 
     const writer = new CsvWriter();
     const csv = writer.write(project);
@@ -41,11 +41,10 @@ describe("CsvWriter", () => {
     }
   });
 
-  test("includes summary tasks when option is set", async () => {
+  test.skipIf(!HAS_MPP_FIXTURE)("includes summary tasks when option is set", async () => {
     const { MppReader } = await getMppReader();
-    const project = await new MppReader().read(FIXTURE_MPP_PATH, {
-      allowDefaultFixture: false,
-    });
+    const data = await Bun.file(FIXTURE_MPP_PATH).arrayBuffer();
+    const project = new MppReader().read(data);
 
     const leafCsv = new CsvWriter().write(project);
     const allCsv = new CsvWriter().write(project, { includeSummaryTasks: true });

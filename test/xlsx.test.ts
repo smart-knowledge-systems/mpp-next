@@ -3,20 +3,20 @@ import { fileURLToPath } from "node:url";
 import ExcelJS from "exceljs";
 
 import { XlsxWriter } from "../src/xlsx/XlsxWriter.ts";
-import { makeMinimalProject } from "./helpers.ts";
+import { makeMinimalProject, fixtureExists } from "./helpers.ts";
 
 const FIXTURE_MPP_PATH = resolveFixturePath("./sample-schedule.mpp");
+const HAS_MPP_FIXTURE = fixtureExists(FIXTURE_MPP_PATH);
 
 async function getMppReader() {
   return import("../src/mpp/MppReader.ts");
 }
 
 describe("XlsxWriter", () => {
-  test("produces a valid XLSX buffer from the MPP fixture", async () => {
+  test.skipIf(!HAS_MPP_FIXTURE)("produces a valid XLSX buffer from the MPP fixture", async () => {
     const { MppReader } = await getMppReader();
-    const project = await new MppReader().read(FIXTURE_MPP_PATH, {
-      allowDefaultFixture: false,
-    });
+    const data = await Bun.file(FIXTURE_MPP_PATH).arrayBuffer();
+    const project = new MppReader().read(data);
 
     const writer = new XlsxWriter();
     const buffer = await writer.write(project);

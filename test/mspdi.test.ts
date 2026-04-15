@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 import { MspdiReader } from "../src/mspdi/MspdiReader.ts";
 import { MspdiWriter } from "../src/mspdi/MspdiWriter.ts";
@@ -786,14 +788,17 @@ describe("MSPDI round-trip", () => {
 // Tests that require an MPP file
 // ---------------------------------------------------------------------------
 
+const HAS_MPP_FIXTURE = existsSync(
+  fileURLToPath(new URL("./sample-schedule.mpp", import.meta.url)),
+);
+
 describe("MSPDI with MPP fixture", () => {
-  test("round-trips the fixture project through MSPDI XML", async () => {
+  test.skipIf(!HAS_MPP_FIXTURE)("round-trips the fixture project through MSPDI XML", async () => {
     const { MppReader } = await import("../src/mpp/MppReader.ts");
     const fixturePath = new URL("./sample-schedule.mpp", import.meta.url);
     const { fileURLToPath } = await import("node:url");
-    const project = await new MppReader().read(fileURLToPath(fixturePath), {
-      allowDefaultFixture: false,
-    });
+    const data = await Bun.file(fileURLToPath(fixturePath)).arrayBuffer();
+    const project = new MppReader().read(data);
 
     const xml = new MspdiWriter().write(project);
     const roundTripped = new MspdiReader().read(xml);
