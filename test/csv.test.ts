@@ -14,32 +14,35 @@ async function getMppReader() {
 }
 
 describe("CsvWriter", () => {
-  test.skipIf(!HAS_MPP_FIXTURE)("produces CSV matching the fixture baseline for leaf tasks", async () => {
-    const { MppReader } = await getMppReader();
-    const data = await Bun.file(FIXTURE_MPP_PATH).arrayBuffer();
-    const project = new MppReader().read(data);
+  test.skipIf(!HAS_MPP_FIXTURE)(
+    "produces CSV matching the fixture baseline for leaf tasks",
+    async () => {
+      const { MppReader } = await getMppReader();
+      const data = await Bun.file(FIXTURE_MPP_PATH).arrayBuffer();
+      const project = new MppReader().read(data);
 
-    const writer = new CsvWriter();
-    const csv = writer.write(project);
-    const baselineCsv = await Bun.file(FIXTURE_CSV_PATH).text();
+      const writer = new CsvWriter();
+      const csv = writer.write(project);
+      const baselineCsv = await Bun.file(FIXTURE_CSV_PATH).text();
 
-    const csvRows = parseCsv(csv);
-    const baselineRows = parseCsv(baselineCsv);
+      const csvRows = parseCsv(csv);
+      const baselineRows = parseCsv(baselineCsv);
 
-    expect(csvRows).toHaveLength(baselineRows.length);
+      expect(csvRows).toHaveLength(baselineRows.length);
 
-    for (const [index, row] of csvRows.entries()) {
-      const baseline = baselineRows[index]!;
-      expect(row["ID"]).toBe(baseline["ID"]);
-      expect(row["Task Name"]).toBe(baseline["Task Name"]);
-      expect(row["WBS"]).toBe(baseline["WBS"]);
-      expect(formatMinuteDate(row["Start"])).toBe(formatMinuteDate(baseline["Start"]));
-      expect(formatMinuteDate(row["Finish"])).toBe(formatMinuteDate(baseline["Finish"]));
-      expect(row["Duration"]).toBe(baseline["Duration"]);
-      expect(row["Critical"]).toBe(baseline["Critical"]);
-      expect(row["Milestone"]).toBe(baseline["Milestone"]);
-    }
-  });
+      for (const [index, row] of csvRows.entries()) {
+        const baseline = baselineRows[index]!;
+        expect(row["ID"]).toBe(baseline["ID"]);
+        expect(row["Task Name"]).toBe(baseline["Task Name"]);
+        expect(row["WBS"]).toBe(baseline["WBS"]);
+        expect(formatMinuteDate(row["Start"])).toBe(formatMinuteDate(baseline["Start"]));
+        expect(formatMinuteDate(row["Finish"])).toBe(formatMinuteDate(baseline["Finish"]));
+        expect(row["Duration"]).toBe(baseline["Duration"]);
+        expect(row["Critical"]).toBe(baseline["Critical"]);
+        expect(row["Milestone"]).toBe(baseline["Milestone"]);
+      }
+    },
+  );
 
   test.skipIf(!HAS_MPP_FIXTURE)("includes summary tasks when option is set", async () => {
     const { MppReader } = await getMppReader();
@@ -70,6 +73,29 @@ describe("CsvWriter", () => {
 
     const csv = new CsvWriter().write(project);
     expect(csv).toContain('"Task with ""quotes"" and, commas"');
+  });
+
+  test("prefixes injection characters with apostrophe", () => {
+    const project = makeMinimalProject();
+
+    const injectionInputs = ["=SUM(A1)", "+1", "-1", "@SUM(A1:A10)"];
+
+    for (const input of injectionInputs) {
+      project.tasks[0]!.name = input;
+      const csv = new CsvWriter().write(project);
+      const dataLine = csv.split("\n")[1]!;
+      // Apostrophe prefix should appear; original value must not appear without it
+      expect(dataLine).toContain("'" + input);
+    }
+  });
+
+  test("applies both injection prefix and quote escaping together", () => {
+    const project = makeMinimalProject();
+    project.tasks[0]!.name = '=cmd,with "quotes"';
+
+    const csv = new CsvWriter().write(project);
+    // Should get apostrophe prefix AND quote wrapping: "'=cmd,with ""quotes"""
+    expect(csv).toContain('"\'=cmd,with ""quotes"""');
   });
 
   test("resolves resource names from assignments", () => {
