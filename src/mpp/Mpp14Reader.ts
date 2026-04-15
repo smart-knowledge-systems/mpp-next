@@ -674,7 +674,7 @@ function normalizeParent(value: number | null): number | null {
 }
 
 function normalizeResourceId(value: number): number | null {
-  return value <= 0 || value === -65535 ? null : value;
+  return value <= 0 || value === 65535 || value === -65535 ? null : value;
 }
 
 function safeShort(buffer: Uint8Array, offset: number): number | null {
