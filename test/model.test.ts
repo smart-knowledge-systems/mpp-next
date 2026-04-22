@@ -195,7 +195,6 @@ describe("Duration", () => {
       expect(parsed.unit).toBe(original.unit);
     });
   });
-
 });
 
 describe("createEmptyProject()", () => {

@@ -30,34 +30,40 @@ const FIXTURE_CSV_PATH = resolveFixturePath("./project_schedule.csv");
 const HAS_MPP_FIXTURE = fixtureExists(FIXTURE_MPP_PATH);
 
 describe("fixture mapping", () => {
-  test.skipIf(!HAS_MPP_FIXTURE)("extracts project data from the mpp binary matching the json baseline", async () => {
-    const project = await readMppFixture(FIXTURE_MPP_PATH);
-    const expected = JSON.parse(await Bun.file(FIXTURE_JSON_PATH).text()) as SerializedProject;
+  test.skipIf(!HAS_MPP_FIXTURE)(
+    "extracts project data from the mpp binary matching the json baseline",
+    async () => {
+      const project = await readMppFixture(FIXTURE_MPP_PATH);
+      const expected = JSON.parse(await Bun.file(FIXTURE_JSON_PATH).text()) as SerializedProject;
 
-    expect(serializeProject(project)).toEqual(expected);
-  });
+      expect(serializeProject(project)).toEqual(expected);
+    },
+  );
 
-  test.skipIf(!HAS_MPP_FIXTURE)("matches the exported CSV for leaf task schedule rows from the mpp binary", async () => {
-    const project = await readMppFixture(FIXTURE_MPP_PATH);
-    const leafTasks = project.tasks.filter((task) => task.summary === false && task.id !== null);
-    const csvRows = parseCsv(await Bun.file(FIXTURE_CSV_PATH).text());
+  test.skipIf(!HAS_MPP_FIXTURE)(
+    "matches the exported CSV for leaf task schedule rows from the mpp binary",
+    async () => {
+      const project = await readMppFixture(FIXTURE_MPP_PATH);
+      const leafTasks = project.tasks.filter((task) => task.summary === false && task.id !== null);
+      const csvRows = parseCsv(await Bun.file(FIXTURE_CSV_PATH).text());
 
-    expect(csvRows).toHaveLength(leafTasks.length);
+      expect(csvRows).toHaveLength(leafTasks.length);
 
-    for (const [index, row] of csvRows.entries()) {
-      const task = leafTasks[index];
-      expect(task).toBeDefined();
-      expect(String(task!.id)).toBe(row["ID"] ?? "");
-      expect(task!.name ?? "").toBe(row["Task Name"] ?? "");
-      expect(task!.wbs ?? "").toBe(row["WBS"] ?? "");
-      expect(formatMinuteDate(task!.start) ?? "").toBe(row["Start"] ?? "");
-      expect(formatMinuteDate(task!.finish) ?? "").toBe(row["Finish"] ?? "");
-      expect(task!.duration?.toSimpleString() ?? "").toBe(row["Duration"] ?? "");
-      expect(formatDecimal(task!.percentComplete)).toBe(row["% Complete"] ?? "");
-      expect(task!.critical ? "Yes" : "No").toBe(row["Critical"] ?? "");
-      expect(task!.milestone ? "Yes" : "No").toBe(row["Milestone"] ?? "");
-    }
-  });
+      for (const [index, row] of csvRows.entries()) {
+        const task = leafTasks[index];
+        expect(task).toBeDefined();
+        expect(String(task!.id)).toBe(row["ID"] ?? "");
+        expect(task!.name ?? "").toBe(row["Task Name"] ?? "");
+        expect(task!.wbs ?? "").toBe(row["WBS"] ?? "");
+        expect(formatMinuteDate(task!.start) ?? "").toBe(row["Start"] ?? "");
+        expect(formatMinuteDate(task!.finish) ?? "").toBe(row["Finish"] ?? "");
+        expect(task!.duration?.toSimpleString() ?? "").toBe(row["Duration"] ?? "");
+        expect(formatDecimal(task!.percentComplete)).toBe(row["% Complete"] ?? "");
+        expect(task!.critical ? "Yes" : "No").toBe(row["Critical"] ?? "");
+        expect(task!.milestone ? "Yes" : "No").toBe(row["Milestone"] ?? "");
+      }
+    },
+  );
 });
 
 describe("mspdi", () => {
@@ -156,47 +162,53 @@ describe("mspdi", () => {
 });
 
 describe("mpp inspection", () => {
-  test.skipIf(!HAS_MPP_FIXTURE)("inspects the sample MPP container and reads directly from the binary API", async () => {
-    const { MppReader } = await getMppReader();
-    const data = await Bun.file(FIXTURE_MPP_PATH).arrayBuffer();
-    const reader = new MppReader();
-    const inspection = reader.inspect(data);
-    const project = reader.read(data);
+  test.skipIf(!HAS_MPP_FIXTURE)(
+    "inspects the sample MPP container and reads directly from the binary API",
+    async () => {
+      const { MppReader } = await getMppReader();
+      const data = await Bun.file(FIXTURE_MPP_PATH).arrayBuffer();
+      const reader = new MppReader();
+      const inspection = reader.inspect(data);
+      const project = reader.read(data);
 
-    expect(inspection.version).toBe(14);
-    expect(inspection.rootPath).toBe("Root Entry/   114");
-    expect(inspection.formatPropsPath).toBe("Root Entry/Props14");
-    expect(inspection.props14).not.toBeNull();
-    expect(inspection.taskTable.fixedDataSize).toBeGreaterThan(0);
-    expect(inspection.taskTable.var2DataSize).toBeGreaterThan(0);
-    expect(project.tasks).toHaveLength(70);
-  });
+      expect(inspection.version).toBe(14);
+      expect(inspection.rootPath).toBe("Root Entry/   114");
+      expect(inspection.formatPropsPath).toBe("Root Entry/Props14");
+      expect(inspection.props14).not.toBeNull();
+      expect(inspection.taskTable.fixedDataSize).toBeGreaterThan(0);
+      expect(inspection.taskTable.var2DataSize).toBeGreaterThan(0);
+      expect(project.tasks).toHaveLength(70);
+    },
+  );
 
-  test.skipIf(!HAS_MPP_FIXTURE)("detects and reads equivalent modern variants when stream roots are renamed", async () => {
-    const { MppReader } = await getMppReader();
-    const container = await loadMppContainer(FIXTURE_MPP_PATH);
-    const variantContainer = {
-      streams: new Map(
-        [...container.streams.entries()].map(([path, value]) => [
-          path
-            .replace("Root Entry/Props14", "Root Entry/Props16")
-            .replace("Root Entry/   114/", "Root Entry/   116/"),
-          value,
-        ]),
-      ),
-    };
+  test.skipIf(!HAS_MPP_FIXTURE)(
+    "detects and reads equivalent modern variants when stream roots are renamed",
+    async () => {
+      const { MppReader } = await getMppReader();
+      const container = await loadMppContainer(FIXTURE_MPP_PATH);
+      const variantContainer = {
+        streams: new Map(
+          [...container.streams.entries()].map(([path, value]) => [
+            path
+              .replace("Root Entry/Props14", "Root Entry/Props16")
+              .replace("Root Entry/   114/", "Root Entry/   116/"),
+            value,
+          ]),
+        ),
+      };
 
-    const reader = new MppReader();
-    const inspection = reader.inspectContainer(variantContainer);
-    const project = reader.readContainer(variantContainer);
+      const reader = new MppReader();
+      const inspection = reader.inspectContainer(variantContainer);
+      const project = reader.readContainer(variantContainer);
 
-    expect(inspection.version).toBe(16);
-    expect(inspection.rootPath).toBe("Root Entry/   116");
-    expect(inspection.formatPropsPath).toBe("Root Entry/Props16");
-    expect(project.properties.saveVersion).toBe(16);
-    expect(project.tasks).toHaveLength(70);
-    expect(project.tasks[1]?.name).toBe("2-3 Modification");
-  });
+      expect(inspection.version).toBe(16);
+      expect(inspection.rootPath).toBe("Root Entry/   116");
+      expect(inspection.formatPropsPath).toBe("Root Entry/Props16");
+      expect(project.properties.saveVersion).toBe(16);
+      expect(project.tasks).toHaveLength(70);
+      expect(project.tasks[1]?.name).toBe("2-3 Modification");
+    },
+  );
 });
 
 function formatMinuteDate(value: Date | null): string | null {
@@ -207,7 +219,6 @@ function formatMinuteDate(value: Date | null): string | null {
 function formatDecimal(value: number | null): string {
   return value === null ? "" : Number.isInteger(value) ? value.toFixed(1) : String(value);
 }
-
 
 function resolveFixturePath(relativePath: string): string {
   return fileURLToPath(new URL(relativePath, import.meta.url));
