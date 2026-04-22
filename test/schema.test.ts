@@ -355,13 +355,16 @@ describe("ProjectFileSchema", () => {
     expect(() => ProjectFileSchema.parse(null)).toThrow();
   });
 
-  test.skipIf(!existsSync("test/sample-schedule.mpp"))("validates JSON round-trip from JsonWriter", async () => {
-    const { readMpp, writeJson } = await import("../src/index.ts");
-    const data = await Bun.file("test/sample-schedule.mpp").arrayBuffer();
-    const project = readMpp(data);
-    const json = writeJson(project);
-    const parsed = JSON.parse(json) as unknown;
-    const result = ProjectFileSchema.safeParse(parsed);
-    expect(result.success).toBe(true);
-  });
+  test.skipIf(!existsSync("test/sample-schedule.mpp"))(
+    "validates JSON round-trip from JsonWriter",
+    async () => {
+      const { readMpp, writeJson } = await import("../src/index.ts");
+      const data = await Bun.file("test/sample-schedule.mpp").arrayBuffer();
+      const project = readMpp(data);
+      const json = writeJson(project);
+      const parsed = JSON.parse(json) as unknown;
+      const result = ProjectFileSchema.safeParse(parsed);
+      expect(result.success).toBe(true);
+    },
+  );
 });
