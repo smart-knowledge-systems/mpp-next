@@ -1,6 +1,8 @@
 // Sketch — Constraint ADT and ScheduleStream interface for `@mpp-next/level-core`.
 // Tracks docs/dev-log/leveling-toolkit-spec-v3.md. Section refs in-line as §X.Y.
 
+import type { ZodType } from "zod";
+
 import type { ProjectFile as Project } from "../model/Project.ts";
 import type { RelationType } from "../model/types.ts";
 
@@ -276,6 +278,31 @@ export interface Pipeline {
 
 export function pipe(...stages: Stage[]): Stage {
   return (project) => stages.reduce((p, s) => s(p), project);
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Block (Pillar 3 / §4.2)
+//
+// A Block is the LCNC unit. Four parts:
+//   - apply       : produce Constraints for the in-process Search.
+//   - toMiniZinc  : emit a fragment for the R1 MZN compile target.
+//   - schema      : Zod schema for params (LCNC validation, JSON edits).
+//   - doc         : human-readable description for the palette/agent.
+// MiniZincContext is provisional — names ("DAYS", "active[t,d]") are
+// hardcoded conventions in v1 and will move into context once the MZN
+// compiler stage lands.
+// ─────────────────────────────────────────────────────────────────
+
+export interface MiniZincContext {
+  readonly tasksDemanding: (resourceUniqueId: number) => ReadonlyArray<number>;
+}
+
+export interface Block<P> {
+  readonly name: string;
+  readonly schema: ZodType<P>;
+  readonly doc: string;
+  apply(project: ResolvedProject, params: P): ReadonlyArray<Constraint>;
+  toMiniZinc(params: P, ctx: MiniZincContext): string;
 }
 
 // ─────────────────────────────────────────────────────────────────
