@@ -6,56 +6,83 @@
 
 import { Duration } from "../model/Duration.ts";
 import { TimeUnit } from "../model/types.ts";
-import type { ProjectFile } from "../schema/project.ts";
+import type { ProjectFile, ProjectProperties } from "../schema/project.ts";
 import type { Task } from "../schema/task.ts";
 
-import { countWorkingDays, dayIndexToDate } from "./calendarDays.ts";
-import type { CalendarResolution, Schedule, ScheduledTask } from "./types.ts";
+import { countWorkingDays, dayToDate } from "./calendarDays.ts";
+import type { ResolvedProject, Schedule, ScheduledTask, WorkingCalendar } from "./types.ts";
 
+function workingDaysPerWeek(properties: ProjectProperties): number {
+  const wpd = properties.minutesPerDay;
+  const wpw = properties.minutesPerWeek;
+  if (wpd <= 0 || wpw <= 0) return 5;
+  return wpw / wpd;
+}
+
+// N2: re-emit duration in the original unit using properties-derived
+// conversions; falls back to Days when the source had no unit.
 function workingDaysToDuration(
   workingDays: number,
   original: Duration | null,
-  minutesPerDay: number,
+  properties: ProjectProperties,
 ): Duration | null {
   if (!original) return Duration.from(workingDays, TimeUnit.Days);
+  const minutesPerDay = properties.minutesPerDay;
+  const wpw = workingDaysPerWeek(properties);
+  const dpm = properties.daysPerMonth;
   switch (original.unit) {
     case TimeUnit.Days:
       return Duration.from(workingDays, TimeUnit.Days);
     case TimeUnit.Weeks:
-      return Duration.from(workingDays / 5, TimeUnit.Weeks);
+      return Duration.from(wpw > 0 ? workingDays / wpw : workingDays, TimeUnit.Weeks);
     case TimeUnit.Hours:
       return Duration.from((workingDays * minutesPerDay) / 60, TimeUnit.Hours);
     case TimeUnit.Minutes:
       return Duration.from(workingDays * minutesPerDay, TimeUnit.Minutes);
     case TimeUnit.Months:
-      return Duration.from(workingDays / 20, TimeUnit.Months);
+      return Duration.from(dpm > 0 ? workingDays / dpm : workingDays, TimeUnit.Months);
     case TimeUnit.Percent:
       return original;
   }
 }
 
+function calendarFor(resolved: ResolvedProject, taskUniqueId: number): WorkingCalendar {
+  const task = resolved.tasks.find((t) => t.uniqueId === taskUniqueId);
+  const id = task?.calendarUniqueId ?? resolved.defaultCalendarUniqueId;
+  if (id !== null) {
+    const cal = resolved.calendars.get(id);
+    if (cal) return cal;
+  }
+  const fallback = resolved.calendars.values().next().value;
+  if (!fallback) {
+    throw new Error("materialize: ResolvedProject has no calendars");
+  }
+  return fallback;
+}
+
 function applyScheduledTask(
   task: Task,
   scheduled: ScheduledTask,
-  calendar: CalendarResolution,
-  minutesPerDay: number,
+  cal: WorkingCalendar,
+  properties: ProjectProperties,
 ): Task {
   if (scheduled.modeId !== null) {
-    throw new Error(`materialize: mode-change tasks are v2 (task ${String(task.uniqueId)})`);
+    throw new Error(
+      `materialize: mode-change tasks are not yet supported (task ${String(task.uniqueId)})`,
+    );
   }
-  const workingDays = countWorkingDays(calendar.bitmap, scheduled.startDay, scheduled.finishDay);
+  const workingDays = countWorkingDays(cal, scheduled.startDay, scheduled.finishDay);
   return {
     ...task,
-    start: dayIndexToDate(scheduled.startDay, calendar.origin),
-    finish: dayIndexToDate(scheduled.finishDay, calendar.origin),
-    duration: workingDaysToDuration(workingDays, task.duration, minutesPerDay),
+    start: dayToDate(cal, scheduled.startDay),
+    finish: dayToDate(cal, scheduled.finishDay),
+    duration: workingDaysToDuration(workingDays, task.duration, properties),
   };
 }
 
 export function materialize(schedule: Schedule): ProjectFile {
   const source = schedule.resolved.source;
-  const calendar = schedule.resolved.calendar;
-  const minutesPerDay = source.properties.minutesPerDay;
+  const properties = source.properties;
 
   const byUniqueId = new Map<number, ScheduledTask>();
   for (const t of schedule.tasks) byUniqueId.set(t.uniqueId, t);
@@ -64,7 +91,8 @@ export function materialize(schedule: Schedule): ProjectFile {
     if (task.uniqueId === null) return task;
     const scheduled = byUniqueId.get(task.uniqueId);
     if (!scheduled) return task;
-    return applyScheduledTask(task, scheduled, calendar, minutesPerDay);
+    const cal = calendarFor(schedule.resolved, task.uniqueId);
+    return applyScheduledTask(task, scheduled, cal, properties);
   });
 
   return { ...source, tasks };
