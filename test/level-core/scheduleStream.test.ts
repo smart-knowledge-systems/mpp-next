@@ -10,8 +10,10 @@ import type {
 
 const fakeResolved = {
   source: { tasks: [] } as unknown,
-  calendar: { origin: new Date(0), bitmap: [], calendarUniqueId: null },
+  defaultCalendarUniqueId: null,
+  calendars: new Map(),
   tasks: [],
+  resources: [],
   assignments: [],
   precedences: [],
 } as unknown as ResolvedProject;
@@ -20,7 +22,7 @@ function fakeSchedule(makespan: number, peak = 0): Schedule {
   const tasks: ScheduledTask[] = [{ uniqueId: 1, startDay: 0, finishDay: makespan, modeId: null }];
   // Stash peak in modeId of a fake second task purely for scoring tests.
   tasks.push({ uniqueId: 99, startDay: 0, finishDay: peak, modeId: null });
-  return { resolved: fakeResolved, tasks, explanations: [] };
+  return { resolved: fakeResolved, tasks, makespan, annotations: new Map() };
 }
 
 const makespanScorer: Scorer = {
@@ -52,7 +54,7 @@ describe("ScheduleStream — lazy transforms", () => {
 
   test("map transforms each schedule", async () => {
     const out = await streamOf(fakeSchedule(3))
-      .map((s) => ({ ...s, explanations: [] as never[] }))
+      .map((s) => ({ ...s, annotations: new Map() }))
       .collect();
     expect(out).toHaveLength(1);
   });
