@@ -9,8 +9,8 @@ import { TimeUnit } from "../model/types.ts";
 import type { ProjectFile, ProjectProperties } from "../schema/project.ts";
 import type { Task } from "../schema/task.ts";
 
-import { countWorkingDays, dayToDate } from "./calendarDays.ts";
-import type { ResolvedProject, Schedule, ScheduledTask, WorkingCalendar } from "./types.ts";
+import { countWorkingDays, dayToDate, resolveWorkingCalendar } from "./calendarDays.ts";
+import type { Schedule, ScheduledTask, WorkingCalendar } from "./types.ts";
 
 function workingDaysPerWeek(properties: ProjectProperties): number {
   const wpd = properties.minutesPerDay;
@@ -46,20 +46,6 @@ function workingDaysToDuration(
   }
 }
 
-function calendarFor(resolved: ResolvedProject, taskUniqueId: number): WorkingCalendar {
-  const task = resolved.tasks.find((t) => t.uniqueId === taskUniqueId);
-  const id = task?.calendarUniqueId ?? resolved.defaultCalendarUniqueId;
-  if (id !== null) {
-    const cal = resolved.calendars.get(id);
-    if (cal) return cal;
-  }
-  const fallback = resolved.calendars.values().next().value;
-  if (!fallback) {
-    throw new Error("materialize: ResolvedProject has no calendars");
-  }
-  return fallback;
-}
-
 function applyScheduledTask(
   task: Task,
   scheduled: ScheduledTask,
@@ -86,12 +72,16 @@ export function materialize(schedule: Schedule): ProjectFile {
 
   const byUniqueId = new Map<number, ScheduledTask>();
   for (const t of schedule.tasks) byUniqueId.set(t.uniqueId, t);
+  const resolvedTaskById = new Map(schedule.resolved.tasks.map((t) => [t.uniqueId, t]));
 
   const tasks = source.tasks.map((task) => {
     if (task.uniqueId === null) return task;
     const scheduled = byUniqueId.get(task.uniqueId);
     if (!scheduled) return task;
-    const cal = calendarFor(schedule.resolved, task.uniqueId);
+    const cal = resolveWorkingCalendar(
+      schedule.resolved,
+      resolvedTaskById.get(task.uniqueId)?.calendarUniqueId ?? null,
+    );
     return applyScheduledTask(task, scheduled, cal, properties);
   });
 

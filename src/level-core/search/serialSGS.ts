@@ -5,7 +5,12 @@
 // SearchTransformers (§2.3).
 
 import { RelationType } from "../../model/types.ts";
-import { advanceWorkingDays, countWorkingDays, nextWorkingDay } from "../calendarDays.ts";
+import {
+  advanceWorkingDays,
+  countWorkingDays,
+  nextWorkingDay,
+  resolveWorkingCalendar,
+} from "../calendarDays.ts";
 import {
   type Constraint,
   type DeadlineConstraint,
@@ -161,19 +166,6 @@ function topoSort(
   return result;
 }
 
-function calendarFor(resolved: ResolvedProject, task: ResolvedTask): WorkingCalendar {
-  const id = task.calendarUniqueId ?? resolved.defaultCalendarUniqueId;
-  if (id !== null) {
-    const cal = resolved.calendars.get(id);
-    if (cal) return cal;
-  }
-  const fallback = resolved.calendars.values().next().value;
-  if (!fallback) {
-    throw new Error("serialSGS: ResolvedProject has no calendars");
-  }
-  return fallback;
-}
-
 // FS and SS get their exact lower bound on the successor's start. FF and SF
 // constrain the successor's *finish* — the greedy pass approximates by
 // subtracting durationDays calendar-day-wise from the constrained finish,
@@ -296,7 +288,7 @@ function placeTask(
   load: ResourceLoad,
   approximated: PrecedenceEdge[],
 ): PlaceResult {
-  const cal = calendarFor(resolved, task);
+  const cal = resolveWorkingCalendar(resolved, task.calendarUniqueId);
   const taskAssignments = resolved.assignments.filter((a) => a.taskUniqueId === task.uniqueId);
   const release = releases.get(task.uniqueId) ?? 0;
   const lowerBound = Math.max(release, earliestStart(task, edges, scheduled, cal, approximated));

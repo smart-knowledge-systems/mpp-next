@@ -3,30 +3,25 @@
 // projects that already have task dates pinned, and so partial pipelines
 // can hand a Schedule to materialize() without going through Search.
 
-import { dateToDay, endOfLocalDayExclusive, startOfLocalDay } from "./calendarDays.ts";
-import type { ResolvedProject, Schedule, ScheduledTask, WorkingCalendar } from "./types.ts";
-
-function calendarFor(resolved: ResolvedProject, taskUniqueId: number): WorkingCalendar {
-  const task = resolved.tasks.find((t) => t.uniqueId === taskUniqueId);
-  const id = task?.calendarUniqueId ?? resolved.defaultCalendarUniqueId;
-  if (id !== null) {
-    const cal = resolved.calendars.get(id);
-    if (cal) return cal;
-  }
-  const fallback = resolved.calendars.values().next().value;
-  if (!fallback) {
-    throw new Error("currentSchedule: ResolvedProject has no calendars");
-  }
-  return fallback;
-}
+import {
+  dateToDay,
+  endOfLocalDayExclusive,
+  resolveWorkingCalendar,
+  startOfLocalDay,
+} from "./calendarDays.ts";
+import type { ResolvedProject, Schedule, ScheduledTask } from "./types.ts";
 
 export function currentSchedule(resolved: ResolvedProject): Schedule {
   const tasks: ScheduledTask[] = [];
   let makespan = 0;
+  const taskById = new Map(resolved.tasks.map((t) => [t.uniqueId, t]));
   for (const sourceTask of resolved.source.tasks) {
     if (sourceTask.uniqueId === null) continue;
     if (!sourceTask.start || !sourceTask.finish) continue;
-    const cal = calendarFor(resolved, sourceTask.uniqueId);
+    const cal = resolveWorkingCalendar(
+      resolved,
+      taskById.get(sourceTask.uniqueId)?.calendarUniqueId ?? null,
+    );
     const startDay = dateToDay(cal, startOfLocalDay(sourceTask.start));
     const finishDay = dateToDay(cal, endOfLocalDayExclusive(sourceTask.finish));
     tasks.push({

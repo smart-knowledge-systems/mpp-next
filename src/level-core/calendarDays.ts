@@ -5,7 +5,7 @@
 
 import type { Calendar } from "../model/Calendar.ts";
 
-import type { DayIndex, WorkingCalendar } from "./types.ts";
+import type { DayIndex, ResolvedProject, WorkingCalendar } from "./types.ts";
 
 const MS_PER_DAY = 86_400_000;
 
@@ -143,6 +143,25 @@ export function nextWorkingDay(cal: WorkingCalendar, day: DayIndex): DayIndex {
 
 export function dayToDate(cal: WorkingCalendar, day: DayIndex): Date {
   return addCalendarDays(cal.epoch, day);
+}
+
+/** Pick the WorkingCalendar for a given calendar override id, falling back
+ *  to the project default and then to any available calendar. Throws if the
+ *  ResolvedProject has no calendars at all — a precondition violation. */
+export function resolveWorkingCalendar(
+  resolved: ResolvedProject,
+  calendarUniqueId: number | null,
+): WorkingCalendar {
+  const id = calendarUniqueId ?? resolved.defaultCalendarUniqueId;
+  if (id !== null) {
+    const cal = resolved.calendars.get(id);
+    if (cal) return cal;
+  }
+  const fallback = resolved.calendars.values().next().value;
+  if (!fallback) {
+    throw new Error("resolveWorkingCalendar: ResolvedProject has no calendars");
+  }
+  return fallback;
 }
 
 /** Returns a non-negative day index relative to `cal.epoch`. Caller must
