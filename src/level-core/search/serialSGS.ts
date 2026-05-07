@@ -1,21 +1,25 @@
-// Greedy serial Schedule Generation Scheme (§11 v1 #2).
+// Greedy serial Schedule Generation Scheme.
 // Topo-sort tasks by precedence, then for each task scan day-by-day from its
 // earliest precedence-feasible start until a window opens that satisfies all
 // resource caps. Single emission per call — restart/LDS/branch-and-bound are
-// SearchTransformers in v2.
+// SearchTransformers (§2.3).
 
 import { RelationType } from "../../model/types.ts";
-import { advanceWorkingDays } from "../calendarDays.ts";
+import { advanceWorkingDays, nextWorkingDay } from "../calendarDays.ts";
 import {
   type Constraint,
+  type DeadlineConstraint,
   type Explanation,
+  type Failure,
   type PrecedenceEdge,
+  type ReleaseConstraint,
   type ResolvedAssignment,
   type ResolvedProject,
   type ResolvedTask,
   type Schedule,
   type ScheduledTask,
   type Search,
+  type WorkingCalendar,
   assertNeverConstraint,
 } from "../types.ts";
 
@@ -27,6 +31,8 @@ interface PerResourceCap {
 interface Preprocessed {
   readonly edges: ReadonlyArray<PrecedenceEdge>;
   readonly caps: ReadonlyMap<number, ReadonlyArray<PerResourceCap>>;
+  readonly deadlines: ReadonlyMap<number, number>;
+  readonly releases: ReadonlyMap<number, number>;
   readonly explanations: ReadonlyArray<Explanation>;
 }
 
@@ -36,6 +42,8 @@ function preprocess(
 ): Preprocessed {
   const edges: PrecedenceEdge[] = [...resolved.precedences];
   const caps = new Map<number, PerResourceCap[]>();
+  const deadlines = new Map<number, number>();
+  const releases = new Map<number, number>();
   const explanations: Explanation[] = [];
 
   const addCap = (resourceId: number, cap: PerResourceCap): void => {
@@ -47,13 +55,23 @@ function preprocess(
     arr.push(cap);
   };
 
+  const tightenDeadline = (taskId: number, latestFinish: number): void => {
+    const prev = deadlines.get(taskId);
+    deadlines.set(taskId, prev === undefined ? latestFinish : Math.min(prev, latestFinish));
+  };
+
+  const loosenRelease = (taskId: number, earliestStart: number): void => {
+    const prev = releases.get(taskId);
+    releases.set(taskId, prev === undefined ? earliestStart : Math.max(prev, earliestStart));
+  };
+
   for (const c of constraints) {
     switch (c.kind) {
       case "Precedence":
         edges.push(...c.edges);
         break;
       case "Calendars":
-        // Already baked into resolved.calendar.bitmap upstream.
+        // Already baked into resolved.calendars upstream.
         break;
       case "MaxConcurrentResource":
         addCap(c.resourceUniqueId, { max: c.max, window: null });
@@ -64,16 +82,23 @@ function preprocess(
           window: c.window ? { fromDay: c.window.fromDay, toDay: c.window.toDay } : null,
         });
         break;
+      case "Deadline":
+        tightenDeadline(c.taskUniqueId, c.latestFinish);
+        break;
+      case "Release":
+        loosenRelease(c.taskUniqueId, c.earliestStart);
+        break;
       case "LaydownSpaceCap":
       case "AdjustmentTeamCap":
       case "MultiBayPrecedence":
       case "UnimodalProfile":
       case "ModeSelection":
+      case "CrewFlowContinuity":
         explanations.push({
           violated: c,
           involvedTaskIds: [],
-          atDay: null,
-          message: `${c.kind} is not implemented in greedy serial-SGS v1; constraint ignored.`,
+          atDays: null,
+          message: `${c.kind} is not implemented in greedy serial-SGS; constraint ignored.`,
         });
         break;
       default:
@@ -81,7 +106,7 @@ function preprocess(
     }
   }
 
-  return { edges, caps, explanations };
+  return { edges, caps, deadlines, releases, explanations };
 }
 
 function topoSort(
@@ -131,18 +156,25 @@ function topoSort(
   return result;
 }
 
-function nextWorkingDay(bitmap: ReadonlyArray<boolean>, day: number): number {
-  let d = day;
-  while (d < bitmap.length && !bitmap[d]) d++;
-  return d;
+function calendarFor(resolved: ResolvedProject, task: ResolvedTask): WorkingCalendar {
+  const id = task.calendarUniqueId ?? resolved.defaultCalendarUniqueId;
+  if (id !== null) {
+    const cal = resolved.calendars.get(id);
+    if (cal) return cal;
+  }
+  const fallback = resolved.calendars.values().next().value;
+  if (!fallback) {
+    throw new Error("serialSGS: ResolvedProject has no calendars");
+  }
+  return fallback;
 }
 
-// FF/SF treated as FS in v1; explanation is emitted by the caller.
+// FF/SF treated as FS in the greedy pass; explanation emitted by the caller.
 function earliestStart(
   task: ResolvedTask,
   edges: ReadonlyArray<PrecedenceEdge>,
   scheduled: ReadonlyMap<number, ScheduledTask>,
-  bitmap: ReadonlyArray<boolean>,
+  cal: WorkingCalendar,
 ): number {
   let earliest = 0;
   for (const e of edges) {
@@ -154,10 +186,10 @@ function earliestStart(
       case RelationType.FinishToStart:
       case RelationType.FinishToFinish:
       case RelationType.StartToFinish:
-        candidate = advanceWorkingDays(bitmap, pred.finishDay, e.lagDays);
+        candidate = advanceWorkingDays(cal, pred.finishDay, e.lagDays);
         break;
       case RelationType.StartToStart:
-        candidate = advanceWorkingDays(bitmap, pred.startDay, e.lagDays);
+        candidate = advanceWorkingDays(cal, pred.startDay, e.lagDays);
         break;
     }
     if (candidate > earliest) earliest = candidate;
@@ -171,12 +203,12 @@ function isFeasible(
   startDay: number,
   finishDay: number,
   taskAssignments: ReadonlyArray<ResolvedAssignment>,
-  bitmap: ReadonlyArray<boolean>,
+  cal: WorkingCalendar,
   caps: ReadonlyMap<number, ReadonlyArray<PerResourceCap>>,
   load: ResourceLoad,
 ): boolean {
   for (let d = startDay; d < finishDay; d++) {
-    if (!bitmap[d]) continue;
+    if (cal.bits[d] !== 1) continue;
     for (const a of taskAssignments) {
       const resourceCaps = caps.get(a.resourceUniqueId);
       if (!resourceCaps) continue;
@@ -195,11 +227,11 @@ function applyLoad(
   startDay: number,
   finishDay: number,
   taskAssignments: ReadonlyArray<ResolvedAssignment>,
-  bitmap: ReadonlyArray<boolean>,
+  cal: WorkingCalendar,
   load: ResourceLoad,
 ): void {
   for (let d = startDay; d < finishDay; d++) {
-    if (!bitmap[d]) continue;
+    if (cal.bits[d] !== 1) continue;
     for (const a of taskAssignments) {
       let perResource = load.get(a.resourceUniqueId);
       if (!perResource) {
@@ -211,62 +243,84 @@ function applyLoad(
   }
 }
 
+interface PlaceResult {
+  readonly explanation: Explanation | null;
+}
+
 function placeTask(
   task: ResolvedTask,
   edges: ReadonlyArray<PrecedenceEdge>,
   scheduled: Map<number, ScheduledTask>,
   resolved: ResolvedProject,
   caps: ReadonlyMap<number, ReadonlyArray<PerResourceCap>>,
+  deadlines: ReadonlyMap<number, number>,
+  releases: ReadonlyMap<number, number>,
   load: ResourceLoad,
-  explanations: Explanation[],
-): void {
-  const bitmap = resolved.calendar.bitmap;
+): PlaceResult {
+  const cal = calendarFor(resolved, task);
   const taskAssignments = resolved.assignments.filter((a) => a.taskUniqueId === task.uniqueId);
-  const lowerBound = earliestStart(task, edges, scheduled, bitmap);
+  const release = releases.get(task.uniqueId) ?? 0;
+  const lowerBound = Math.max(release, earliestStart(task, edges, scheduled, cal));
+  const deadline = deadlines.get(task.uniqueId) ?? null;
 
   if (task.milestone || task.durationDays === 0) {
+    if (deadline !== null && lowerBound > deadline) {
+      return {
+        explanation: {
+          violated: { kind: "Deadline", taskUniqueId: task.uniqueId, latestFinish: deadline },
+          involvedTaskIds: [task.uniqueId],
+          atDays: { fromDay: lowerBound, toDay: lowerBound },
+          message: `Deadline ${String(deadline)} violated by milestone ${String(task.uniqueId)} earliest start ${String(lowerBound)}`,
+        },
+      };
+    }
     scheduled.set(task.uniqueId, {
       uniqueId: task.uniqueId,
       startDay: lowerBound,
       finishDay: lowerBound,
       modeId: null,
     });
-    return;
+    return { explanation: null };
   }
 
-  for (let candidate = lowerBound; candidate < bitmap.length; candidate++) {
-    const startDay = nextWorkingDay(bitmap, candidate);
-    if (startDay >= bitmap.length) break;
-    const finishDay = advanceWorkingDays(bitmap, startDay, task.durationDays);
-    if (isFeasible(startDay, finishDay, taskAssignments, bitmap, caps, load)) {
-      applyLoad(startDay, finishDay, taskAssignments, bitmap, load);
+  for (let candidate = lowerBound; candidate < cal.horizonDays; candidate++) {
+    const startDay = nextWorkingDay(cal, candidate);
+    if (startDay >= cal.horizonDays) break;
+    const finishDay = advanceWorkingDays(cal, startDay, task.durationDays);
+    if (deadline !== null && finishDay > deadline) {
+      return {
+        explanation: {
+          violated: { kind: "Deadline", taskUniqueId: task.uniqueId, latestFinish: deadline },
+          involvedTaskIds: [task.uniqueId],
+          atDays: { fromDay: startDay, toDay: finishDay },
+          message: `Deadline ${String(deadline)} violated: task ${String(task.uniqueId)} earliest feasible finish is ${String(finishDay)}`,
+        },
+      };
+    }
+    if (isFeasible(startDay, finishDay, taskAssignments, cal, caps, load)) {
+      applyLoad(startDay, finishDay, taskAssignments, cal, load);
       scheduled.set(task.uniqueId, {
         uniqueId: task.uniqueId,
         startDay,
         finishDay,
         modeId: null,
       });
-      return;
+      return { explanation: null };
     }
     // Skip past the working day we just tried to avoid quadratic re-scan.
     candidate = startDay;
   }
 
-  // Couldn't place — record the failure but still emit a partial schedule
-  // with the task pinned at the precedence lower bound so callers can see
-  // what was infeasible.
-  explanations.push({
-    violated: { kind: "Precedence", edges: [] },
-    involvedTaskIds: [task.uniqueId],
-    atDay: lowerBound,
-    message: `serialSGS: ran out of horizon placing task ${String(task.uniqueId)}`,
-  });
-  scheduled.set(task.uniqueId, {
-    uniqueId: task.uniqueId,
-    startDay: lowerBound,
-    finishDay: lowerBound + task.durationDays,
-    modeId: null,
-  });
+  // Couldn't place — record the failure with a typed Precedence violation
+  // (the proximate cause is the precedence lower bound + cap conflict).
+  return {
+    explanation: {
+      violated: { kind: "Precedence", edges: [] },
+      involvedTaskIds: [task.uniqueId],
+      atDays: { fromDay: lowerBound, toDay: cal.horizonDays },
+      message: `serialSGS: ran out of horizon placing task ${String(task.uniqueId)}`,
+    },
+  };
 }
 
 export const serialSGS: Search = {
@@ -274,21 +328,56 @@ export const serialSGS: Search = {
   async *run(
     resolved: ResolvedProject,
     constraints: ReadonlyArray<Constraint>,
-  ): AsyncGenerator<Schedule> {
-    const { edges, caps, explanations } = preprocess(resolved, constraints);
+  ): AsyncGenerator<Schedule, Failure | undefined> {
+    const { edges, caps, deadlines, releases, explanations } = preprocess(resolved, constraints);
     const order = topoSort(resolved.tasks, edges);
     const scheduled = new Map<number, ScheduledTask>();
     const load: ResourceLoad = new Map();
-    const runtimeExplanations: Explanation[] = [];
+    const placementExplanations: Explanation[] = [];
+    let placementFailed = false;
 
     for (const task of order) {
-      placeTask(task, edges, scheduled, resolved, caps, load, runtimeExplanations);
+      const { explanation } = placeTask(
+        task,
+        edges,
+        scheduled,
+        resolved,
+        caps,
+        deadlines,
+        releases,
+        load,
+      );
+      if (explanation) {
+        placementExplanations.push(explanation);
+        placementFailed = true;
+      }
+    }
+
+    if (placementFailed) {
+      return {
+        kind: "failure",
+        explanations: [...explanations, ...placementExplanations],
+      } satisfies Failure;
+    }
+
+    const tasks = order.map((t) => scheduled.get(t.uniqueId)!);
+    let makespan = 0;
+    for (const t of tasks) {
+      if (t.finishDay > makespan) makespan = t.finishDay;
     }
 
     yield {
       resolved,
-      tasks: order.map((t) => scheduled.get(t.uniqueId)!),
-      explanations: [...explanations, ...runtimeExplanations],
+      tasks,
+      makespan,
+      annotations: new Map<string, unknown>(
+        explanations.length > 0 ? [["unsupportedConstraints", explanations]] : [],
+      ),
     };
+    return undefined;
   },
 };
+
+// Reserved for callers that want to inspect deadlines/releases pulled out
+// during preprocessing.
+export type { DeadlineConstraint, ReleaseConstraint };

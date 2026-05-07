@@ -5,7 +5,7 @@ import { ScheduleStreamImpl } from "../../src/level-core/scheduleStream.ts";
 import { serialSGS } from "../../src/level-core/search/serialSGS.ts";
 import { Duration } from "../../src/model/Duration.ts";
 import { RelationType, ResourceType, TimeUnit } from "../../src/model/types.ts";
-import type { Constraint, Schedule } from "../../src/level-core/types.ts";
+import type { Constraint, Explanation, Schedule } from "../../src/level-core/types.ts";
 import type { Calendar } from "../../src/schema/calendar.ts";
 import type { ProjectFile } from "../../src/schema/project.ts";
 import type { Relation } from "../../src/schema/relation.ts";
@@ -373,7 +373,7 @@ describe("serialSGS — resource caps", () => {
 });
 
 describe("serialSGS — unimplemented constraints", () => {
-  test("UnimodalProfile records an Explanation but does not block emission", async () => {
+  test("UnimodalProfile records an Explanation in annotations but does not block emission", async () => {
     const t1 = makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 });
     const schedule = await runOnce(makeProject([t1]), [
       {
@@ -383,8 +383,12 @@ describe("serialSGS — unimplemented constraints", () => {
       },
     ]);
     expect(schedule.tasks).toHaveLength(1);
-    expect(schedule.explanations).toHaveLength(1);
-    expect(schedule.explanations[0]!.message).toMatch(/UnimodalProfile.*not implemented/);
+    const unsupported = schedule.annotations.get("unsupportedConstraints") as
+      | ReadonlyArray<Explanation>
+      | undefined;
+    expect(unsupported).toBeDefined();
+    expect(unsupported).toHaveLength(1);
+    expect(unsupported![0]!.message).toMatch(/UnimodalProfile.*not implemented/);
   });
 });
 
