@@ -1,14 +1,9 @@
 import { test, expect, describe } from "bun:test";
 
+import { currentSchedule } from "../../src/level-core/currentSchedule.ts";
+import { resolveCalendar } from "../../src/level-core/resolveCalendar.ts";
 import { Duration } from "../../src/model/Duration.ts";
 import { RelationType, TimeUnit } from "../../src/model/types.ts";
-import {
-  addCalendarDays,
-  calendarDayOffset,
-  dayIndexToDate,
-  startOfLocalDay,
-} from "../../src/level-core/calendarDays.ts";
-import { resolveCalendar } from "../../src/level-core/resolveCalendar.ts";
 import type { Calendar, CalendarException } from "../../src/schema/calendar.ts";
 import type { ProjectFile } from "../../src/schema/project.ts";
 import type { Relation } from "../../src/schema/relation.ts";
@@ -33,8 +28,8 @@ function monFriCalendar(uniqueId = 1, exceptions: CalendarException[] = []): Cal
 
 function makeTask(args: {
   uniqueId: number;
-  start: Date;
-  finish: Date;
+  start: Date | null;
+  finish: Date | null;
   predecessors?: Relation[];
   milestone?: boolean;
   duration?: Duration | null;
@@ -97,84 +92,77 @@ function makeProject(tasks: Task[], calendars: Calendar[] = [monFriCalendar()]):
   };
 }
 
-// 2026-01-05 is a Monday (Jan 1 2026 = Thu).
+function defaultCal(resolved: ReturnType<typeof resolveCalendar>) {
+  const id = resolved.defaultCalendarUniqueId;
+  return id !== null ? resolved.calendars.get(id)! : resolved.calendars.values().next().value!;
+}
+
 const MON_JAN_5 = new Date(2026, 0, 5);
 const SAT_JAN_10 = new Date(2026, 0, 10);
 const TUE_JAN_13 = new Date(2026, 0, 13);
 
 describe("resolveCalendar — Mon–Fri calendar", () => {
-  test("1-week task spanning Mon–Fri", () => {
+  test("1-week task: durationDays = 5, currentSchedule places at days 0..5", () => {
     const project = makeProject([makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 })]);
     const resolved = resolveCalendar(project);
-    expect(resolved.tasks).toHaveLength(1);
-    const t = resolved.tasks[0]!;
-    expect(t.startDay).toBe(0);
-    expect(t.finishDay).toBe(5);
-    expect(t.durationDays).toBe(5);
+    expect(resolved.tasks[0]!.durationDays).toBe(5);
+    const schedule = currentSchedule(resolved);
+    expect(schedule.tasks[0]).toEqual({ uniqueId: 1, startDay: 0, finishDay: 5, modeId: null });
+    expect(schedule.makespan).toBe(5);
   });
 
-  test("MSPDI-style end-of-workday finish (Fri 17:00) rounds up to Sat midnight", () => {
+  test("MSPDI Fri 17:00 finish rounds up to Sat midnight", () => {
     const friAt17 = new Date(2026, 0, 9, 17, 0, 0);
     const project = makeProject([makeTask({ uniqueId: 1, start: MON_JAN_5, finish: friAt17 })]);
     const resolved = resolveCalendar(project);
-    expect(resolved.tasks[0]!.finishDay).toBe(5);
-    expect(resolved.tasks[0]!.durationDays).toBe(5);
+    expect(currentSchedule(resolved).tasks[0]!.finishDay).toBe(5);
   });
 
   test("milestone (start === finish at midnight) has zero duration", () => {
     const project = makeProject([
       makeTask({ uniqueId: 1, start: MON_JAN_5, finish: MON_JAN_5, milestone: true }),
     ]);
-    const t = resolveCalendar(project).tasks[0]!;
-    expect(t.startDay).toBe(0);
-    expect(t.finishDay).toBe(0);
-    expect(t.durationDays).toBe(0);
-    expect(t.milestone).toBe(true);
+    const resolved = resolveCalendar(project);
+    expect(resolved.tasks[0]!.durationDays).toBe(0);
+    expect(resolved.tasks[0]!.milestone).toBe(true);
+    expect(currentSchedule(resolved).tasks[0]!.startDay).toBe(0);
+    expect(currentSchedule(resolved).tasks[0]!.finishDay).toBe(0);
   });
 
-  test("origin is start-of-day even when source uses non-midnight times", () => {
+  test("epoch is start-of-day even when source uses non-midnight times", () => {
     const monAt9 = new Date(2026, 0, 5, 9, 0, 0);
     const project = makeProject([makeTask({ uniqueId: 1, start: monAt9, finish: SAT_JAN_10 })]);
     const resolved = resolveCalendar(project);
-    expect(resolved.calendar.origin.getHours()).toBe(0);
-    expect(resolved.calendar.origin.getDate()).toBe(5);
-    expect(resolved.tasks[0]!.startDay).toBe(0);
+    const cal = defaultCal(resolved);
+    expect(cal.epoch.getHours()).toBe(0);
+    expect(cal.epoch.getDate()).toBe(5);
   });
 
-  test("Sat/Sun gap is non-working in the bitmap", () => {
+  test("Sat/Sun gap is non-working in the bits", () => {
     const project = makeProject([makeTask({ uniqueId: 1, start: MON_JAN_5, finish: TUE_JAN_13 })]);
-    const resolved = resolveCalendar(project);
-    // Day 5 = Sat, day 6 = Sun → both non-working.
-    expect(resolved.calendar.bitmap[5]).toBe(false);
-    expect(resolved.calendar.bitmap[6]).toBe(false);
-    expect(resolved.calendar.bitmap[7]).toBe(true);
-    // Mon..Fri (5 working) + Mon (1 working) = 6, Tue 13 is exclusive.
-    expect(resolved.tasks[0]!.durationDays).toBe(6);
+    const cal = defaultCal(resolveCalendar(project));
+    expect(cal.bits[5]).toBe(0);
+    expect(cal.bits[6]).toBe(0);
+    expect(cal.bits[7]).toBe(1);
   });
 });
 
 describe("resolveCalendar — exceptions", () => {
-  test("mid-week non-working exception lengthens calendar span", () => {
-    // Wed Jan 7 2026 marked non-working. A 5-working-day task starting Mon
-    // Jan 5 must therefore end Tue Jan 13 (cal-day 8).
+  test("mid-week non-working exception lengthens span", () => {
     const wedJan7 = new Date(2026, 0, 7);
     const calendar = monFriCalendar(1, [
-      {
-        name: "Plant maintenance",
-        fromDate: wedJan7,
-        toDate: wedJan7,
-        working: false,
-      },
+      { name: "Plant maintenance", fromDate: wedJan7, toDate: wedJan7, working: false },
     ]);
     const project = makeProject(
       [makeTask({ uniqueId: 1, start: MON_JAN_5, finish: TUE_JAN_13 })],
       [calendar],
     );
     const resolved = resolveCalendar(project);
-    expect(resolved.calendar.bitmap[2]).toBe(false); // Wed Jan 7 is now non-working.
-    expect(resolved.tasks[0]!.startDay).toBe(0);
-    expect(resolved.tasks[0]!.finishDay).toBe(8);
-    expect(resolved.tasks[0]!.durationDays).toBe(5);
+    expect(defaultCal(resolved).bits[2]).toBe(0);
+    // 5 working days with one mid-week non-working day → start 0, finish 8.
+    const sched = currentSchedule(resolved).tasks[0]!;
+    expect(sched.startDay).toBe(0);
+    expect(sched.finishDay).toBe(8);
   });
 
   test("exception with `working: null` is treated as non-working", () => {
@@ -186,12 +174,12 @@ describe("resolveCalendar — exceptions", () => {
       [makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 })],
       [calendar],
     );
-    expect(resolveCalendar(project).calendar.bitmap[2]).toBe(false);
+    expect(defaultCal(resolveCalendar(project)).bits[2]).toBe(0);
   });
 });
 
 describe("resolveCalendar — precedence edges", () => {
-  test("FS edge with 2-day working-day lag carries lagDays through", () => {
+  test("FS edge with 2-day lag carries lagDays through", () => {
     const t1 = makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 });
     const t2 = makeTask({
       uniqueId: 2,
@@ -206,9 +194,7 @@ describe("resolveCalendar — precedence edges", () => {
         },
       ],
     });
-    const project = makeProject([t1, t2]);
-    const resolved = resolveCalendar(project);
-    expect(resolved.precedences).toHaveLength(1);
+    const resolved = resolveCalendar(makeProject([t1, t2]));
     expect(resolved.precedences[0]).toEqual({
       predecessorUniqueId: 1,
       successorUniqueId: 2,
@@ -217,7 +203,7 @@ describe("resolveCalendar — precedence edges", () => {
     });
   });
 
-  test("week-unit lag converts to 5 working days", () => {
+  test("week-unit lag uses minutesPerWeek/minutesPerDay (not hardcoded 5)", () => {
     const t1 = makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 });
     const t2 = makeTask({
       uniqueId: 2,
@@ -232,11 +218,45 @@ describe("resolveCalendar — precedence edges", () => {
         },
       ],
     });
+    // 480 min/day, 2400 min/week → 5 working days/week.
     expect(resolveCalendar(makeProject([t1, t2])).precedences[0]!.lagDays).toBe(5);
+  });
+
+  test("week-unit lag honors a 6-day workweek (minutesPerWeek = 2880)", () => {
+    const t1 = makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 });
+    const t2 = makeTask({
+      uniqueId: 2,
+      start: TUE_JAN_13,
+      finish: new Date(2026, 0, 20),
+      predecessors: [
+        {
+          predecessorUniqueId: 1,
+          successorUniqueId: 2,
+          type: RelationType.StartToStart,
+          lag: Duration.from(1, TimeUnit.Weeks),
+        },
+      ],
+    });
+    const project: ProjectFile = {
+      ...makeProject([t1, t2]),
+      properties: {
+        title: null,
+        author: null,
+        startDate: null,
+        finishDate: null,
+        statusDate: null,
+        defaultCalendarUniqueId: 1,
+        minutesPerDay: 480,
+        minutesPerWeek: 2880, // 6 working days/week
+        daysPerMonth: 20,
+        saveVersion: null,
+      },
+    };
+    expect(resolveCalendar(project).precedences[0]!.lagDays).toBe(6);
   });
 });
 
-describe("resolveCalendar — assignments + source preservation", () => {
+describe("resolveCalendar — assignments, resources, source preservation", () => {
   test("assignments pass through with default units = 1 when null", () => {
     const project: ProjectFile = {
       ...makeProject([makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 })]),
@@ -253,70 +273,139 @@ describe("resolveCalendar — assignments + source preservation", () => {
         },
       ],
     };
-    const resolved = resolveCalendar(project);
-    expect(resolved.assignments).toEqual([{ taskUniqueId: 1, resourceUniqueId: 10, units: 1 }]);
+    expect(resolveCalendar(project).assignments).toEqual([
+      { taskUniqueId: 1, resourceUniqueId: 10, units: 1 },
+    ]);
+  });
+
+  test("D2: capacityPerDay = (maxUnits ?? 1) * (minutesPerDay/60)", () => {
+    // 480 min/day → 8 hours/day; maxUnits = 2 → capacity = 16.
+    const project: ProjectFile = {
+      ...makeProject([makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 })]),
+      resources: [
+        {
+          id: 10,
+          uniqueId: 10,
+          name: "Crew",
+          type: "Work" as never,
+          email: null,
+          group: null,
+          maxUnits: 2,
+          cost: null,
+          work: null,
+          resourcePool: null,
+        },
+      ],
+    };
+    expect(resolveCalendar(project).resources).toEqual([
+      { uniqueId: 10, capacityPerDay: 16, calendarUniqueId: null },
+    ]);
   });
 
   test("`source` field is the input project (identity)", () => {
     const project = makeProject([makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 })]);
-    const resolved = resolveCalendar(project);
-    expect(resolved.source).toBe(project);
+    expect(resolveCalendar(project).source).toBe(project);
   });
 });
 
-describe("resolveCalendar — fallback calendar", () => {
-  test("missing calendars synthesizes a Mon–Fri calendar", () => {
+describe("resolveCalendar — D1 epoch", () => {
+  test("opts.epoch wins over statusDate and task starts", () => {
+    const explicitEpoch = new Date(2025, 11, 29); // Mon Dec 29 2025
+    const project: ProjectFile = {
+      ...makeProject([makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 })]),
+      properties: {
+        title: null,
+        author: null,
+        startDate: null,
+        finishDate: null,
+        statusDate: new Date(2026, 0, 1),
+        defaultCalendarUniqueId: 1,
+        minutesPerDay: 480,
+        minutesPerWeek: 2400,
+        daysPerMonth: 20,
+        saveVersion: null,
+      },
+    };
+    const resolved = resolveCalendar(project, { epoch: explicitEpoch });
+    expect(defaultCal(resolved).epoch.getDate()).toBe(29);
+    expect(defaultCal(resolved).epoch.getMonth()).toBe(11);
+  });
+
+  test("statusDate is used when opts.epoch is absent", () => {
+    const project: ProjectFile = {
+      ...makeProject([makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 })]),
+      properties: {
+        title: null,
+        author: null,
+        startDate: null,
+        finishDate: null,
+        statusDate: new Date(2025, 11, 30),
+        defaultCalendarUniqueId: 1,
+        minutesPerDay: 480,
+        minutesPerWeek: 2400,
+        daysPerMonth: 20,
+        saveVersion: null,
+      },
+    };
+    expect(defaultCal(resolveCalendar(project)).epoch.getDate()).toBe(30);
+  });
+
+  test("throws when neither opts.epoch, statusDate, startDate, nor task starts exist", () => {
+    const project: ProjectFile = {
+      ...makeProject([]),
+    };
+    expect(() => resolveCalendar(project)).toThrow(/cannot pick epoch/);
+  });
+});
+
+describe("resolveCalendar — D4 multi-calendar map", () => {
+  test("default calendar lives in the map under its uniqueId", () => {
+    const c1 = monFriCalendar(7);
+    const project = makeProject(
+      [makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 })],
+      [c1],
+    );
+    const resolved = resolveCalendar(project);
+    expect(resolved.defaultCalendarUniqueId).toBe(7);
+    expect(resolved.calendars.get(7)).toBeDefined();
+  });
+
+  test("non-default calendars also build in the map", () => {
+    const c1 = monFriCalendar(1);
+    const c2 = monFriCalendar(2);
+    const project = makeProject(
+      [makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 })],
+      [c1, c2],
+    );
+    const resolved = resolveCalendar(project);
+    expect(resolved.calendars.has(1)).toBe(true);
+    expect(resolved.calendars.has(2)).toBe(true);
+  });
+
+  test("missing calendars synthesizes a Mon–Fri fallback", () => {
     const project = makeProject(
       [makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 })],
       [],
     );
     const resolved = resolveCalendar(project);
-    expect(resolved.calendar.calendarUniqueId).toBeNull();
-    expect(resolved.calendar.bitmap[0]).toBe(true); // Mon
-    expect(resolved.calendar.bitmap[5]).toBe(false); // Sat
+    expect(resolved.defaultCalendarUniqueId).toBeNull();
+    expect(resolved.calendars.size).toBe(1);
+    const cal = resolved.calendars.values().next().value!;
+    expect(cal.bits[0]).toBe(1); // Mon
+    expect(cal.bits[5]).toBe(0); // Sat
   });
 });
 
 describe("resolveCalendar — error paths", () => {
   test("task missing start throws", () => {
-    const broken = makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 });
-    const project = makeProject([{ ...broken, start: null }]);
-    expect(() => resolveCalendar(project)).toThrow(/missing start or finish/);
+    const broken = makeTask({ uniqueId: 1, start: null, finish: SAT_JAN_10 });
+    expect(() => resolveCalendar(makeProject([broken]))).toThrow(/missing start or finish/);
   });
 
   test("task missing uniqueId throws", () => {
     const broken = makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 });
-    const project = makeProject([{ ...broken, uniqueId: null }]);
-    expect(() => resolveCalendar(project)).toThrow(/missing uniqueId/);
-  });
-});
-
-describe("calendarDays helpers", () => {
-  test("calendarDayOffset round-trips with addCalendarDays", () => {
-    const origin = MON_JAN_5;
-    for (let n = 0; n < 30; n++) {
-      const reconstructed = dayIndexToDate(n, origin);
-      expect(calendarDayOffset(reconstructed, origin)).toBe(n);
-    }
-  });
-
-  test("startOfLocalDay strips time-of-day", () => {
-    const dt = new Date(2026, 0, 5, 13, 45, 30, 999);
-    const start = startOfLocalDay(dt);
-    expect(start.getHours()).toBe(0);
-    expect(start.getMinutes()).toBe(0);
-    expect(start.getSeconds()).toBe(0);
-    expect(start.getMilliseconds()).toBe(0);
-    expect(start.getDate()).toBe(5);
-  });
-
-  test("addCalendarDays survives a DST boundary in northern hemisphere", () => {
-    // 2026 US DST starts Sun Mar 8. Cross the boundary by adding 7 cal days.
-    const beforeDst = new Date(2026, 2, 6); // Fri Mar 6
-    const after = addCalendarDays(beforeDst, 7);
-    expect(after.getDate()).toBe(13);
-    expect(after.getMonth()).toBe(2);
-    expect(after.getHours()).toBe(0);
-    expect(calendarDayOffset(after, beforeDst)).toBe(7);
+    expect(() => resolveCalendar(makeProject([{ ...broken, uniqueId: null }]))).toThrow(
+      /missing uniqueId/,
+    );
   });
 });
