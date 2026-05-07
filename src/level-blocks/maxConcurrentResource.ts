@@ -1,10 +1,10 @@
 // MaxConcurrentResource — first concrete v4 Block (§4.3).
 //
-// Caps the number of units that may simultaneously demand a named resource
-// on any working day. The greedy serial-SGS already honors the
-// `MaxConcurrentResource` constraint variant, so this Block is what the
-// LCNC palette and the LLM agent emit when a user asks for a per-resource
-// concurrency cap.
+// Caps the number of *tasks* that may simultaneously demand a named
+// resource on any working day. Counts tasks (boolean activity), not
+// fractional unit demand — the unit-summing variant is `PeakCap`. The
+// greedy serial-SGS and the MiniZinc fragment both use task-count
+// semantics so the two backends agree on part-time assignments.
 //
 // MiniZinc target shape (matches the v1 compile contract): `active[t,d]`
 // is the boolean activity matrix, `tasks_demanding[r]` the index set of
@@ -48,7 +48,7 @@ export const MaxConcurrentResourceBlock: ConstraintBlock<MaxConcurrentResourceIn
       `(bool2int(active[t,d])) <= ${String(max)} );`,
   }),
   doc: {
-    nl: "At most N units may simultaneously demand the named resource on any working day.",
-    pseudocode: "forall day d: sum(units(t,d) for t demanding r) <= max",
+    nl: "At most N tasks may simultaneously demand the named resource on any working day.",
+    pseudocode: "forall day d: count(t demanding r and active(t,d)) <= max",
   },
 };

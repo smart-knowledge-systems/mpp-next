@@ -316,6 +316,89 @@ describe("serialSGS — resource caps", () => {
     expect(t2sched.startDay).toBe(0);
   });
 
+  test("MaxConcurrentResource counts tasks, not units (matches MiniZinc bool2int)", async () => {
+    // Three tasks each at 0.5 units. Under unit-sum semantics with max=2,
+    // up to 4 could run concurrently (4 * 0.5 = 2.0). Under task-count
+    // semantics (matching MiniZinc), only 2 may run concurrently.
+    const t1 = makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 });
+    const t2 = makeTask({ uniqueId: 2, start: MON_JAN_5, finish: SAT_JAN_10 });
+    const t3 = makeTask({ uniqueId: 3, start: MON_JAN_5, finish: SAT_JAN_10 });
+    const project = makeProject([t1, t2, t3], {
+      resources: [
+        {
+          id: 1,
+          uniqueId: 100,
+          name: "Crew",
+          type: ResourceType.Work,
+          email: null,
+          group: null,
+          maxUnits: null,
+          cost: null,
+          work: null,
+          resourcePool: null,
+        },
+      ],
+      assignments: [1, 2, 3].map((taskUniqueId) => ({
+        taskUniqueId,
+        resourceUniqueId: 100,
+        work: null,
+        units: 0.5,
+        start: null,
+        finish: null,
+        actualWork: null,
+        remainingWork: null,
+      })),
+    });
+    const schedule = await runOnce(project, [
+      { kind: "MaxConcurrentResource", resourceUniqueId: 100, max: 2 },
+    ]);
+    const t1sched = schedule.tasks.find((t) => t.uniqueId === 1)!;
+    const t2sched = schedule.tasks.find((t) => t.uniqueId === 2)!;
+    const t3sched = schedule.tasks.find((t) => t.uniqueId === 3)!;
+    // T1 and T2 may run together (2 tasks ≤ 2). T3 must wait.
+    expect(t1sched.startDay).toBe(0);
+    expect(t2sched.startDay).toBe(0);
+    expect(t3sched.startDay).toBe(7);
+  });
+
+  test("PeakCap sums fractional units (distinct from MaxConcurrentResource)", async () => {
+    // Same three half-unit tasks under PeakCap{cap:2}: 4 tasks at 0.5 each
+    // sum to 2.0 — all three should run together, since 1.5 ≤ 2.
+    const t1 = makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 });
+    const t2 = makeTask({ uniqueId: 2, start: MON_JAN_5, finish: SAT_JAN_10 });
+    const t3 = makeTask({ uniqueId: 3, start: MON_JAN_5, finish: SAT_JAN_10 });
+    const project = makeProject([t1, t2, t3], {
+      resources: [
+        {
+          id: 1,
+          uniqueId: 100,
+          name: "Crew",
+          type: ResourceType.Work,
+          email: null,
+          group: null,
+          maxUnits: null,
+          cost: null,
+          work: null,
+          resourcePool: null,
+        },
+      ],
+      assignments: [1, 2, 3].map((taskUniqueId) => ({
+        taskUniqueId,
+        resourceUniqueId: 100,
+        work: null,
+        units: 0.5,
+        start: null,
+        finish: null,
+        actualWork: null,
+        remainingWork: null,
+      })),
+    });
+    const schedule = await runOnce(project, [{ kind: "PeakCap", resourceUniqueId: 100, cap: 2 }]);
+    expect(schedule.tasks.find((t) => t.uniqueId === 1)!.startDay).toBe(0);
+    expect(schedule.tasks.find((t) => t.uniqueId === 2)!.startDay).toBe(0);
+    expect(schedule.tasks.find((t) => t.uniqueId === 3)!.startDay).toBe(0);
+  });
+
   test("PeakCap with window only constrains inside the window", async () => {
     const t1 = makeTask({ uniqueId: 1, start: MON_JAN_5, finish: FRI_JAN_9 });
     const t2 = makeTask({ uniqueId: 2, start: MON_JAN_5, finish: FRI_JAN_9 });

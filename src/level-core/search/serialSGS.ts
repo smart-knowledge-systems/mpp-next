@@ -23,7 +23,11 @@ import {
   assertNeverConstraint,
 } from "../types.ts";
 
+// `mode` aligns with the MiniZinc compile contract: MaxConcurrentResource
+// counts active tasks (matches `bool2int(active[t,d])`), PeakCap sums
+// fractional units (matches `sum(units[t] * active[t,d])`).
 interface PerResourceCap {
+  readonly mode: "tasks" | "units";
   readonly max: number;
   readonly window: { readonly fromDay: number; readonly toDay: number } | null;
 }
@@ -74,10 +78,11 @@ function preprocess(
         // Already baked into resolved.calendars upstream.
         break;
       case "MaxConcurrentResource":
-        addCap(c.resourceUniqueId, { max: c.max, window: null });
+        addCap(c.resourceUniqueId, { mode: "tasks", max: c.max, window: null });
         break;
       case "PeakCap":
         addCap(c.resourceUniqueId, {
+          mode: "units",
           max: c.cap,
           window: c.window ? { fromDay: c.window.fromDay, toDay: c.window.toDay } : null,
         });
@@ -214,9 +219,14 @@ function earliestStart(
   return earliest;
 }
 
-type ResourceLoad = Map<number, Map<number, number>>;
+interface DayLoad {
+  units: number;
+  taskIds: Set<number>;
+}
+type ResourceLoad = Map<number, Map<number, DayLoad>>;
 
 function isFeasible(
+  taskUniqueId: number,
   startDay: number,
   finishDay: number,
   taskAssignments: ReadonlyArray<ResolvedAssignment>,
@@ -229,11 +239,15 @@ function isFeasible(
     for (const a of taskAssignments) {
       const resourceCaps = caps.get(a.resourceUniqueId);
       if (!resourceCaps) continue;
-      const currentLoad = load.get(a.resourceUniqueId)?.get(d) ?? 0;
-      const newLoad = currentLoad + a.units;
+      const dayLoad = load.get(a.resourceUniqueId)?.get(d);
+      const currentUnits = dayLoad?.units ?? 0;
+      const alreadyActive = dayLoad?.taskIds.has(taskUniqueId) ?? false;
+      const newUnits = currentUnits + a.units;
+      const newTaskCount = (dayLoad?.taskIds.size ?? 0) + (alreadyActive ? 0 : 1);
       for (const cap of resourceCaps) {
         if (cap.window && (d < cap.window.fromDay || d >= cap.window.toDay)) continue;
-        if (newLoad > cap.max) return false;
+        if (cap.mode === "units" && newUnits > cap.max) return false;
+        if (cap.mode === "tasks" && newTaskCount > cap.max) return false;
       }
     }
   }
@@ -241,6 +255,7 @@ function isFeasible(
 }
 
 function applyLoad(
+  taskUniqueId: number,
   startDay: number,
   finishDay: number,
   taskAssignments: ReadonlyArray<ResolvedAssignment>,
@@ -255,7 +270,13 @@ function applyLoad(
         perResource = new Map();
         load.set(a.resourceUniqueId, perResource);
       }
-      perResource.set(d, (perResource.get(d) ?? 0) + a.units);
+      let dayLoad = perResource.get(d);
+      if (!dayLoad) {
+        dayLoad = { units: 0, taskIds: new Set() };
+        perResource.set(d, dayLoad);
+      }
+      dayLoad.units += a.units;
+      dayLoad.taskIds.add(taskUniqueId);
     }
   }
 }
@@ -319,8 +340,8 @@ function placeTask(
         },
       };
     }
-    if (isFeasible(startDay, finishDay, taskAssignments, cal, caps, load)) {
-      applyLoad(startDay, finishDay, taskAssignments, cal, load);
+    if (isFeasible(task.uniqueId, startDay, finishDay, taskAssignments, cal, caps, load)) {
+      applyLoad(task.uniqueId, startDay, finishDay, taskAssignments, cal, load);
       scheduled.set(task.uniqueId, {
         uniqueId: task.uniqueId,
         startDay,
