@@ -5,7 +5,7 @@ import { ScheduleStreamImpl } from "../../src/level-core/scheduleStream.ts";
 import { serialSGS } from "../../src/level-core/search/serialSGS.ts";
 import { Duration } from "../../src/model/Duration.ts";
 import { RelationType, ResourceType, TimeUnit } from "../../src/model/types.ts";
-import type { Constraint, Explanation, Schedule } from "../../src/level-core/types.ts";
+import type { Constraint, Explanation, Failure, Schedule } from "../../src/level-core/types.ts";
 import type { Calendar } from "../../src/schema/calendar.ts";
 import type { ProjectFile } from "../../src/schema/project.ts";
 import type { Relation } from "../../src/schema/relation.ts";
@@ -413,6 +413,39 @@ describe("serialSGS — milestones", () => {
     const m = schedule.tasks.find((t) => t.uniqueId === 2)!;
     expect(m.startDay).toBe(5);
     expect(m.finishDay).toBe(5);
+  });
+});
+
+describe("serialSGS — horizon exhaustion", () => {
+  test("emits Failure instead of throwing when task can't fit before horizon", async () => {
+    // Task with 4 working days at a project-end deadline — fits in the
+    // horizon when standalone but not when serialized after a precedessor
+    // that consumes all the working days.
+    const t1 = makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 });
+    const t2 = makeTask({
+      uniqueId: 2,
+      start: MON_JAN_5,
+      finish: SAT_JAN_10,
+      predecessors: [
+        {
+          predecessorUniqueId: 1,
+          successorUniqueId: 2,
+          type: RelationType.FinishToStart,
+          lag: null,
+        },
+      ],
+    });
+    // Horizon = 8 days (Mon–Mon). T1 takes 5 working days, T2 needs 5 more —
+    // T2 will run out of horizon. Should yield a Failure, not throw.
+    const project = makeProject([t1, t2]);
+    const resolved = resolveCalendar(project, { horizonDays: 8 });
+    const generator = serialSGS.run(resolved, []);
+    const first = await generator.next();
+    expect(first.done).toBe(true);
+    const failure = first.value as Failure | undefined;
+    expect(failure).toBeDefined();
+    expect(failure!.kind).toBe("failure");
+    expect(failure!.explanations.length).toBeGreaterThan(0);
   });
 });
 

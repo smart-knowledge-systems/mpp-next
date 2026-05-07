@@ -5,7 +5,7 @@
 // SearchTransformers (§2.3).
 
 import { RelationType } from "../../model/types.ts";
-import { advanceWorkingDays, nextWorkingDay } from "../calendarDays.ts";
+import { advanceWorkingDays, countWorkingDays, nextWorkingDay } from "../calendarDays.ts";
 import {
   type Constraint,
   type DeadlineConstraint,
@@ -286,6 +286,10 @@ function placeTask(
   for (let candidate = lowerBound; candidate < cal.horizonDays; candidate++) {
     const startDay = nextWorkingDay(cal, candidate);
     if (startDay >= cal.horizonDays) break;
+    // Guard the throw in advanceWorkingDays: if there aren't enough working
+    // days left in the horizon, fall through to the Failure construction
+    // below rather than letting the exception escape the generator.
+    if (countWorkingDays(cal, startDay, cal.horizonDays) < task.durationDays) break;
     const finishDay = advanceWorkingDays(cal, startDay, task.durationDays);
     if (deadline !== null && finishDay > deadline) {
       return {
