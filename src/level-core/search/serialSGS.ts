@@ -169,12 +169,17 @@ function calendarFor(resolved: ResolvedProject, task: ResolvedTask): WorkingCale
   return fallback;
 }
 
-// FF/SF treated as FS in the greedy pass; explanation emitted by the caller.
+// FS and SS get their exact lower bound on the successor's start. FF and SF
+// constrain the successor's *finish* — the greedy pass approximates by
+// subtracting durationDays calendar-day-wise from the constrained finish,
+// which under-delays vs strict working-day retreat. Edges encountered in
+// approximation are returned so the caller can annotate the Schedule.
 function earliestStart(
   task: ResolvedTask,
   edges: ReadonlyArray<PrecedenceEdge>,
   scheduled: ReadonlyMap<number, ScheduledTask>,
   cal: WorkingCalendar,
+  approximated: PrecedenceEdge[],
 ): number {
   let earliest = 0;
   for (const e of edges) {
@@ -184,12 +189,24 @@ function earliestStart(
     let candidate: number;
     switch (e.type) {
       case RelationType.FinishToStart:
-      case RelationType.FinishToFinish:
-      case RelationType.StartToFinish:
         candidate = advanceWorkingDays(cal, pred.finishDay, e.lagDays);
         break;
       case RelationType.StartToStart:
         candidate = advanceWorkingDays(cal, pred.startDay, e.lagDays);
+        break;
+      case RelationType.FinishToFinish:
+        candidate = Math.max(
+          0,
+          advanceWorkingDays(cal, pred.finishDay, e.lagDays) - task.durationDays,
+        );
+        approximated.push(e);
+        break;
+      case RelationType.StartToFinish:
+        candidate = Math.max(
+          0,
+          advanceWorkingDays(cal, pred.startDay, e.lagDays) - task.durationDays,
+        );
+        approximated.push(e);
         break;
     }
     if (candidate > earliest) earliest = candidate;
@@ -256,11 +273,12 @@ function placeTask(
   deadlines: ReadonlyMap<number, number>,
   releases: ReadonlyMap<number, number>,
   load: ResourceLoad,
+  approximated: PrecedenceEdge[],
 ): PlaceResult {
   const cal = calendarFor(resolved, task);
   const taskAssignments = resolved.assignments.filter((a) => a.taskUniqueId === task.uniqueId);
   const release = releases.get(task.uniqueId) ?? 0;
-  const lowerBound = Math.max(release, earliestStart(task, edges, scheduled, cal));
+  const lowerBound = Math.max(release, earliestStart(task, edges, scheduled, cal, approximated));
   const deadline = deadlines.get(task.uniqueId) ?? null;
 
   if (task.milestone || task.durationDays === 0) {
@@ -338,6 +356,7 @@ export const serialSGS: Search = {
     const scheduled = new Map<number, ScheduledTask>();
     const load: ResourceLoad = new Map();
     const placementExplanations: Explanation[] = [];
+    const approximatedEdges: PrecedenceEdge[] = [];
     let placementFailed = false;
 
     for (const task of order) {
@@ -350,6 +369,7 @@ export const serialSGS: Search = {
         deadlines,
         releases,
         load,
+        approximatedEdges,
       );
       if (explanation) {
         placementExplanations.push(explanation);
@@ -357,10 +377,21 @@ export const serialSGS: Search = {
       }
     }
 
+    const approximationExplanations: Explanation[] = approximatedEdges.map((e) => ({
+      violated: { kind: "Precedence", edges: [e] },
+      involvedTaskIds: [e.predecessorUniqueId, e.successorUniqueId],
+      atDays: null,
+      message:
+        `serialSGS: ${e.type === RelationType.FinishToFinish ? "FF" : "SF"} relation ` +
+        `${String(e.predecessorUniqueId)}→${String(e.successorUniqueId)} approximated ` +
+        `(start lower bound under-delays vs strict working-day retreat); use a CP-SAT or ` +
+        `MiniZinc backend for exact semantics.`,
+    }));
+
     if (placementFailed) {
       return {
         kind: "failure",
-        explanations: [...explanations, ...placementExplanations],
+        explanations: [...explanations, ...approximationExplanations, ...placementExplanations],
       } satisfies Failure;
     }
 
@@ -370,13 +401,17 @@ export const serialSGS: Search = {
       if (t.finishDay > makespan) makespan = t.finishDay;
     }
 
+    const annotationEntries: [string, unknown][] = [];
+    if (explanations.length > 0) annotationEntries.push(["unsupportedConstraints", explanations]);
+    if (approximationExplanations.length > 0) {
+      annotationEntries.push(["approximatedRelations", approximationExplanations]);
+    }
+
     yield {
       resolved,
       tasks,
       makespan,
-      annotations: new Map<string, unknown>(
-        explanations.length > 0 ? [["unsupportedConstraints", explanations]] : [],
-      ),
+      annotations: new Map<string, unknown>(annotationEntries),
     };
     return undefined;
   },

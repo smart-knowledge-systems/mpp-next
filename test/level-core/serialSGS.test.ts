@@ -416,6 +416,83 @@ describe("serialSGS — milestones", () => {
   });
 });
 
+describe("serialSGS — FF/SF approximation", () => {
+  test("FF relation does not over-delay successor and emits approximatedRelations", async () => {
+    const t1 = makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 });
+    const t2 = makeTask({
+      uniqueId: 2,
+      start: MON_JAN_5,
+      finish: SAT_JAN_10,
+      predecessors: [
+        {
+          predecessorUniqueId: 1,
+          successorUniqueId: 2,
+          type: RelationType.FinishToFinish,
+          lag: null,
+        },
+      ],
+    });
+    const schedule = await runOnce(makeProject([t1, t2]), []);
+    const t1sched = schedule.tasks.find((t) => t.uniqueId === 1)!;
+    const t2sched = schedule.tasks.find((t) => t.uniqueId === 2)!;
+    // T1 occupies days 0–5. Under FS-degradation, T2 would have started at
+    // day 7 (next working day). Under proper FF semantics with lag=0 and
+    // duration=5, T2 can start at day 0 since its finish (day 5) >= T1's
+    // finish (day 5). Verify we no longer over-delay.
+    expect(t1sched.finishDay).toBe(5);
+    expect(t2sched.startDay).toBe(0);
+    const approximated = schedule.annotations.get("approximatedRelations") as
+      | ReadonlyArray<Explanation>
+      | undefined;
+    expect(approximated).toBeDefined();
+    expect(approximated!.length).toBe(1);
+    expect(approximated![0]!.message).toMatch(/FF.*approximated/);
+  });
+
+  test("SF relation emits approximatedRelations", async () => {
+    const t1 = makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 });
+    const t2 = makeTask({
+      uniqueId: 2,
+      start: MON_JAN_5,
+      finish: SAT_JAN_10,
+      predecessors: [
+        {
+          predecessorUniqueId: 1,
+          successorUniqueId: 2,
+          type: RelationType.StartToFinish,
+          lag: null,
+        },
+      ],
+    });
+    const schedule = await runOnce(makeProject([t1, t2]), []);
+    const approximated = schedule.annotations.get("approximatedRelations") as
+      | ReadonlyArray<Explanation>
+      | undefined;
+    expect(approximated).toBeDefined();
+    expect(approximated!.length).toBe(1);
+    expect(approximated![0]!.message).toMatch(/SF.*approximated/);
+  });
+
+  test("FS and SS relations do not emit approximatedRelations", async () => {
+    const t1 = makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 });
+    const t2 = makeTask({
+      uniqueId: 2,
+      start: MON_JAN_5,
+      finish: SAT_JAN_10,
+      predecessors: [
+        {
+          predecessorUniqueId: 1,
+          successorUniqueId: 2,
+          type: RelationType.FinishToStart,
+          lag: null,
+        },
+      ],
+    });
+    const schedule = await runOnce(makeProject([t1, t2]), []);
+    expect(schedule.annotations.has("approximatedRelations")).toBe(false);
+  });
+});
+
 describe("serialSGS — horizon exhaustion", () => {
   test("emits Failure instead of throwing when task can't fit before horizon", async () => {
     // Task with 4 working days at a project-end deadline — fits in the
