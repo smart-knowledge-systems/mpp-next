@@ -577,6 +577,84 @@ describe("serialSGS — FF/SF approximation", () => {
 });
 
 describe("serialSGS — horizon exhaustion", () => {
+  test("emits Failure instead of throwing when FS lag overflows horizon", async () => {
+    // Predecessor finishes near horizon end; FS edge lag pushes the
+    // successor's earliestStart past the bitmap. earliestStart's
+    // advanceWorkingDays must not throw — fall through to Failure.
+    const t1 = makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 });
+    const t2 = makeTask({
+      uniqueId: 2,
+      start: MON_JAN_5,
+      finish: SAT_JAN_10,
+      predecessors: [
+        {
+          predecessorUniqueId: 1,
+          successorUniqueId: 2,
+          type: RelationType.FinishToStart,
+          lag: Duration.from(20, TimeUnit.Days),
+        },
+      ],
+    });
+    const project = makeProject([t1, t2]);
+    const resolved = resolveCalendar(project, { horizonDays: 8 });
+    const generator = serialSGS.run(resolved, []);
+    const first = await generator.next();
+    expect(first.done).toBe(true);
+    const failure = first.value as Failure | undefined;
+    expect(failure).toBeDefined();
+    expect(failure!.kind).toBe("failure");
+  });
+
+  test("emits Failure instead of throwing when SS lag overflows horizon", async () => {
+    const t1 = makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 });
+    const t2 = makeTask({
+      uniqueId: 2,
+      start: MON_JAN_5,
+      finish: SAT_JAN_10,
+      predecessors: [
+        {
+          predecessorUniqueId: 1,
+          successorUniqueId: 2,
+          type: RelationType.StartToStart,
+          lag: Duration.from(30, TimeUnit.Days),
+        },
+      ],
+    });
+    const project = makeProject([t1, t2]);
+    const resolved = resolveCalendar(project, { horizonDays: 8 });
+    const generator = serialSGS.run(resolved, []);
+    const first = await generator.next();
+    expect(first.done).toBe(true);
+    const failure = first.value as Failure | undefined;
+    expect(failure).toBeDefined();
+    expect(failure!.kind).toBe("failure");
+  });
+
+  test("emits Failure instead of throwing when FF lag overflows horizon", async () => {
+    const t1 = makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 });
+    const t2 = makeTask({
+      uniqueId: 2,
+      start: MON_JAN_5,
+      finish: SAT_JAN_10,
+      predecessors: [
+        {
+          predecessorUniqueId: 1,
+          successorUniqueId: 2,
+          type: RelationType.FinishToFinish,
+          lag: Duration.from(20, TimeUnit.Days),
+        },
+      ],
+    });
+    const project = makeProject([t1, t2]);
+    const resolved = resolveCalendar(project, { horizonDays: 8 });
+    const generator = serialSGS.run(resolved, []);
+    const first = await generator.next();
+    expect(first.done).toBe(true);
+    const failure = first.value as Failure | undefined;
+    expect(failure).toBeDefined();
+    expect(failure!.kind).toBe("failure");
+  });
+
   test("emits Failure instead of throwing when task can't fit before horizon", async () => {
     // Task with 4 working days at a project-end deadline — fits in the
     // horizon when standalone but not when serialized after a precedessor

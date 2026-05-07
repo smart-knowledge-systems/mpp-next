@@ -166,6 +166,16 @@ function topoSort(
   return result;
 }
 
+// Returns advanceWorkingDays(cal, from, lag) when the lag fits within the
+// horizon, else cal.horizonDays — letting the caller surface the overflow
+// as the existing "ran out of horizon" Failure path instead of throwing.
+function safeAdvance(cal: WorkingCalendar, from: number, lag: number): number {
+  if (lag <= 0) return Math.max(0, from);
+  if (from >= cal.horizonDays) return cal.horizonDays;
+  if (countWorkingDays(cal, from, cal.horizonDays) < lag) return cal.horizonDays;
+  return advanceWorkingDays(cal, from, lag);
+}
+
 // FS and SS get their exact lower bound on the successor's start. FF and SF
 // constrain the successor's *finish* — the greedy pass approximates by
 // subtracting durationDays calendar-day-wise from the constrained finish,
@@ -186,23 +196,17 @@ function earliestStart(
     let candidate: number;
     switch (e.type) {
       case RelationType.FinishToStart:
-        candidate = advanceWorkingDays(cal, pred.finishDay, e.lagDays);
+        candidate = safeAdvance(cal, pred.finishDay, e.lagDays);
         break;
       case RelationType.StartToStart:
-        candidate = advanceWorkingDays(cal, pred.startDay, e.lagDays);
+        candidate = safeAdvance(cal, pred.startDay, e.lagDays);
         break;
       case RelationType.FinishToFinish:
-        candidate = Math.max(
-          0,
-          advanceWorkingDays(cal, pred.finishDay, e.lagDays) - task.durationDays,
-        );
+        candidate = Math.max(0, safeAdvance(cal, pred.finishDay, e.lagDays) - task.durationDays);
         approximated.push(e);
         break;
       case RelationType.StartToFinish:
-        candidate = Math.max(
-          0,
-          advanceWorkingDays(cal, pred.startDay, e.lagDays) - task.durationDays,
-        );
+        candidate = Math.max(0, safeAdvance(cal, pred.startDay, e.lagDays) - task.durationDays);
         approximated.push(e);
         break;
     }
