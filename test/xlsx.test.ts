@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { fileURLToPath } from "node:url";
 import ExcelJS from "exceljs";
+import JSZip from "jszip";
 
 import { XlsxWriter } from "../src/xlsx/XlsxWriter.ts";
 import { makeMinimalProject, fixtureExists } from "./helpers.ts";
@@ -102,6 +103,73 @@ describe("XlsxWriter", () => {
     // ExcelJS round-trips serial numbers as Date objects
     expect(startCell.value).not.toBeNull();
     expect(startCell.numFmt).toBe("M/D/YYYY H:MM AM/PM");
+  });
+
+  test("writeWithGantt adds hidden data sheet, Gantt sheet, and chart XML", async () => {
+    const project = makeMinimalProject();
+    const buffer = await new XlsxWriter().writeWithGantt(project, {
+      title: "OHT Installation",
+      phases: [
+        {
+          label: "Phase 1",
+          bays: [
+            { name: "MB204", start: "2027-09-01", finish: "2027-11-15" },
+            { name: "MB205", start: "2027-10-01", finish: "2027-12-15" },
+          ],
+        },
+        {
+          label: "Phase 2",
+          bays: [{ name: "MB210", start: "2028-01-10", finish: "2028-02-28" }],
+        },
+      ],
+    });
+
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer.buffer.slice(0) as ArrayBuffer);
+
+    const dataSheet = workbook.getWorksheet("_Gantt Data");
+    expect(dataSheet).toBeDefined();
+    expect(dataSheet!.state).toBe("hidden");
+    // header + 3 bays
+    expect(dataSheet!.rowCount).toBe(4);
+    // First data row should be the earliest start (2027-09-01) -> MB204
+    const firstRow = dataSheet!.getRow(2);
+    expect(firstRow.getCell(1).value).toBe("Phase 1: MB204");
+
+    expect(workbook.getWorksheet("Gantt")).toBeDefined();
+
+    const zip = await JSZip.loadAsync(buffer.buffer.slice(0) as ArrayBuffer);
+    const chartFile = zip.file("xl/charts/chart1.xml");
+    expect(chartFile).not.toBeNull();
+    const chartXml = await chartFile!.async("string");
+    expect(chartXml).toContain('<c:barDir val="bar"/>');
+    expect(chartXml).toContain('<c:grouping val="stacked"/>');
+    // Phase 1 color on the duration data points
+    expect(chartXml).toContain('val="4472C4"');
+    // Phase 2 color on the duration data points
+    expect(chartXml).toContain('val="ED7D31"');
+
+    const drawingFile = zip.file("xl/drawings/drawing1.xml");
+    expect(drawingFile).not.toBeNull();
+
+    const sheetRels = await zip.file("xl/worksheets/_rels/sheet3.xml.rels")!.async("string");
+    expect(sheetRels).toContain("drawings/drawing1.xml");
+
+    const ct = await zip.file("[Content_Types].xml")!.async("string");
+    expect(ct).toContain("/xl/charts/chart1.xml");
+    expect(ct).toContain("/xl/drawings/drawing1.xml");
+  });
+
+  test("writeWithGantt with empty phases returns a plain xlsx", async () => {
+    const project = makeMinimalProject();
+    const buffer = await new XlsxWriter().writeWithGantt(project, { phases: [] });
+
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer.buffer.slice(0) as ArrayBuffer);
+
+    expect(workbook.getWorksheet("Schedule")).toBeDefined();
+    expect(workbook.getWorksheet("Gantt")).toBeUndefined();
+    expect(workbook.getWorksheet("_Gantt Data")).toBeUndefined();
   });
 
   test("styles the header row with blue background and white bold text", async () => {
