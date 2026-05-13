@@ -80,11 +80,18 @@ export class CsvWriter {
   }
 }
 
+// Characters that spreadsheet apps (Excel, Google Sheets, LibreOffice Calc,
+// Numbers) interpret as the start of a formula. Per OWASP, defang by
+// prepending a single apostrophe so the cell renders as literal text.
+const FORMULA_TRIGGERS = new Set(["=", "+", "-", "@", "\t", "\r"]);
+
 function escapeField(value: unknown): string {
   if (value == null) return "";
   let s = String(value);
-  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
-  if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+  if (s.length > 0 && FORMULA_TRIGGERS.has(s[0]!)) {
+    s = "'" + s;
+  }
+  if (s.includes(",") || s.includes('"') || s.includes("\n") || s.includes("\r")) {
     return `"${s.replace(/"/g, '""')}"`;
   }
   return s;
