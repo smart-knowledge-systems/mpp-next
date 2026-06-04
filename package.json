@@ -1,5 +1,5 @@
 {
-  "name": "mpp-next",
+  "name": "levelset",
   "module": "src/index.ts",
   "type": "module",
   "private": true,

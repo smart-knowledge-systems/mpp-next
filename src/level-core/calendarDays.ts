@@ -1,4 +1,4 @@
-// Working-day arithmetic for `@mpp-next/level-core`.
+// Working-day arithmetic for `@levelset/level-core`.
 // Hot-loop helpers — Date in / number out at the boundaries; no Dates
 // flowing through the leveling pipeline. Tracks spec §2.4 (R4) and S5
 // (Uint8Array bits + Int32Array prefix sum).

@@ -1,5 +1,5 @@
-// Zod schemas for mpp-next model validation
-// Usage: import { ProjectFileSchema } from "mpp-next/schema";
+// Zod schemas for levelset model validation
+// Usage: import { ProjectFileSchema } from "levelset/schema";
 
 export { ProjectFileSchema, ProjectPropertiesSchema } from "./project.ts";
 export type { ProjectFile, ProjectProperties } from "./project.ts";

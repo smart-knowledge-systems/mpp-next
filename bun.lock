@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "mpp-next",
+      "name": "levelset",
       "dependencies": {
         "cfb": "^1.2.2",
         "exceljs": "^4.4.0",

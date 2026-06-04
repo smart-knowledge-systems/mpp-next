@@ -1,4 +1,4 @@
-// Types & signatures for @mpp-next/level-core.
+// Types & signatures for @levelset/level-core.
 // Tracks docs/dev-log/leveling-toolkit-spec-v4.md (§ refs in-line).
 
 import type { ProjectFile as Project } from "../model/Project.ts";
@@ -325,7 +325,7 @@ export type SearchTransformer = (inner: Search) => Search;
 // Two layers, easy to confuse:
 //
 //   • Pipeline-as-data — the `Block[]` + port wiring sense. JSON-
-//     serializable. Lives in @mpp-next/level-blocks. The LCNC editor
+//     serializable. Lives in @levelset/level-blocks. The LCNC editor
 //     and the LLM agent emit this; the compiler accepts it.
 //   • Pipeline-as-function (this file) — the *compiled* form. `Stage`
 //     is a function, not data; `pipe` composes them. Compilation

@@ -1,4 +1,4 @@
-// Block contract for `@mpp-next/level-blocks` (N4 / §4.2).
+// Block contract for `@levelset/level-blocks` (N4 / §4.2).
 //
 // A Block is the LCNC composition unit: a typed quadruple shared by the
 // visual editor (Pillar 3), the LLM agent (Pillar 4), and the compiler.
