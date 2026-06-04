@@ -455,6 +455,122 @@ describe("serialSGS — resource caps", () => {
   });
 });
 
+describe("serialSGS — unit caps (ConcurrentUnitsLimit)", () => {
+  const crewResource = {
+    id: 1,
+    uniqueId: 100,
+    name: "Crew",
+    type: ResourceType.Work,
+    email: null,
+    group: null,
+    maxUnits: null,
+    cost: null,
+    work: null,
+    resourcePool: null,
+  };
+  const elecResource = { ...crewResource, id: 2, uniqueId: 200, name: "Electrical" };
+
+  function assignment(taskUniqueId: number, resourceUniqueId: number) {
+    return {
+      taskUniqueId,
+      resourceUniqueId,
+      work: null,
+      units: 1,
+      start: null,
+      finish: null,
+      actualWork: null,
+      remainingWork: null,
+    };
+  }
+
+  test("whole-bay limit max=1 serializes two single-task units", async () => {
+    const t1 = makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 });
+    const t2 = makeTask({ uniqueId: 2, start: MON_JAN_5, finish: SAT_JAN_10 });
+    const schedule = await runOnce(makeProject([t1, t2]), [
+      {
+        kind: "ConcurrentUnitsLimit",
+        units: [
+          { id: 10, taskUniqueIds: [1] },
+          { id: 20, taskUniqueIds: [2] },
+        ],
+        max: 1,
+      },
+    ]);
+    const t1s = schedule.tasks.find((t) => t.uniqueId === 1)!;
+    const t2s = schedule.tasks.find((t) => t.uniqueId === 2)!;
+    expect(t1s.startDay).toBe(0);
+    expect(t1s.finishDay).toBe(5);
+    // Unit 20 can't be open while unit 10 is — next working day after 5.
+    expect(t2s.startDay).toBe(7);
+  });
+
+  test("whole-bay limit max=2 permits both units in parallel", async () => {
+    const t1 = makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 });
+    const t2 = makeTask({ uniqueId: 2, start: MON_JAN_5, finish: SAT_JAN_10 });
+    const schedule = await runOnce(makeProject([t1, t2]), [
+      {
+        kind: "ConcurrentUnitsLimit",
+        units: [
+          { id: 10, taskUniqueIds: [1] },
+          { id: 20, taskUniqueIds: [2] },
+        ],
+        max: 2,
+      },
+    ]);
+    expect(schedule.tasks.find((t) => t.uniqueId === 1)!.startDay).toBe(0);
+    expect(schedule.tasks.find((t) => t.uniqueId === 2)!.startDay).toBe(0);
+  });
+
+  test("two tasks in the SAME unit do not count twice against the cap", async () => {
+    // Unit 10 holds both tasks; unit 20 is empty. max=1 must still allow the
+    // two tasks of unit 10 to run together — one open unit, not two.
+    const t1 = makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 });
+    const t2 = makeTask({ uniqueId: 2, start: MON_JAN_5, finish: SAT_JAN_10 });
+    const schedule = await runOnce(makeProject([t1, t2]), [
+      {
+        kind: "ConcurrentUnitsLimit",
+        units: [{ id: 10, taskUniqueIds: [1, 2] }],
+        max: 1,
+      },
+    ]);
+    expect(schedule.tasks.find((t) => t.uniqueId === 1)!.startDay).toBe(0);
+    expect(schedule.tasks.find((t) => t.uniqueId === 2)!.startDay).toBe(0);
+  });
+
+  test("discipline-scoped limit serializes only the discipline's tasks", async () => {
+    // Each unit has one electrical task (res 200) and one general task (res 100).
+    // ConcurrentUnitsLimit{discipline:200,max:1} may not have both units'
+    // electrical work active together → electrical serializes; general work,
+    // uncounted, stays parallel.
+    const elecA = makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 });
+    const genA = makeTask({ uniqueId: 2, start: MON_JAN_5, finish: SAT_JAN_10 });
+    const elecB = makeTask({ uniqueId: 3, start: MON_JAN_5, finish: SAT_JAN_10 });
+    const genB = makeTask({ uniqueId: 4, start: MON_JAN_5, finish: SAT_JAN_10 });
+    const project = makeProject([elecA, genA, elecB, genB], {
+      resources: [crewResource, elecResource],
+      assignments: [assignment(1, 200), assignment(2, 100), assignment(3, 200), assignment(4, 100)],
+    });
+    const schedule = await runOnce(project, [
+      {
+        kind: "ConcurrentUnitsLimit",
+        discipline: 200,
+        units: [
+          { id: 10, taskUniqueIds: [1, 2] },
+          { id: 20, taskUniqueIds: [3, 4] },
+        ],
+        max: 1,
+      },
+    ]);
+    const by = new Map(schedule.tasks.map((t) => [t.uniqueId, t]));
+    // Electrical work serializes across the two units.
+    expect(by.get(1)!.startDay).toBe(0);
+    expect(by.get(3)!.startDay).toBe(7);
+    // General work is not counted by the discipline cap — both at day 0.
+    expect(by.get(2)!.startDay).toBe(0);
+    expect(by.get(4)!.startDay).toBe(0);
+  });
+});
+
 describe("serialSGS — unimplemented constraints", () => {
   test("UnimodalProfile records an Explanation in annotations but does not block emission", async () => {
     const t1 = makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 });
@@ -472,6 +588,18 @@ describe("serialSGS — unimplemented constraints", () => {
     expect(unsupported).toBeDefined();
     expect(unsupported).toHaveLength(1);
     expect(unsupported![0]!.message).toMatch(/UnimodalProfile.*not implemented/);
+  });
+
+  test("UnitPrecedence is recorded as unsupported (renamed from MultiBayPrecedence)", async () => {
+    const t1 = makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 });
+    const schedule = await runOnce(makeProject([t1]), [
+      { kind: "UnitPrecedence", unitId: 20, afterUnitIds: [10] },
+    ]);
+    const unsupported = schedule.annotations.get("unsupportedConstraints") as
+      | ReadonlyArray<Explanation>
+      | undefined;
+    expect(unsupported).toBeDefined();
+    expect(unsupported![0]!.message).toMatch(/UnitPrecedence.*not implemented/);
   });
 });
 

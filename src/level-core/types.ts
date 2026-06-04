@@ -12,7 +12,7 @@ export type { Project };
 //
 // Bitmap is Uint8Array (1 byte/day vs ~9 for boolean[]) and carries a
 // precomputed prefix sum so "working days between A and B" is O(1) — the
-// dominant query in the OHT script. `readonly` is by convention here;
+// dominant query in the leveling pipeline. `readonly` is by convention here;
 // stages must not mutate.
 // ─────────────────────────────────────────────────────────────────
 
@@ -82,11 +82,44 @@ export interface ResolvedProject {
 }
 
 // ─────────────────────────────────────────────────────────────────
+// WorkUnit (§4.3 — the generalized "bay")
+//
+// The largest *independent* work package: the minimum complete increment
+// that can be put into production and handed over to the customer. A unit
+// groups the tasks that comprise it (those tasks may span disciplines /
+// resource categories). Generalizes the OHT-install "bay" along two axes
+// the domain conflates:
+//
+//   • location    — WHERE the work happens (LBMS location, e.g. "Bay 03W")
+//   • productType — WHAT it is: the generic product/template it instantiates
+//   • serial      — the serial-numbered instantiation of that product
+//
+// All three are optional metadata; only `id` and `taskUniqueIds` are load-
+// bearing for scheduling. JSON-serializable — it rides inside constraints.
+// ─────────────────────────────────────────────────────────────────
+
+// Optional fields carry `| undefined` so zod's `.optional()` (which infers
+// `T | undefined`) round-trips under tsconfig `exactOptionalPropertyTypes`.
+export interface WorkUnit {
+  readonly id: number;
+  /** WHERE — physical/logical location (LBMS location). */
+  readonly location?: string | undefined;
+  /** WHAT — the generic product/template this unit instantiates. */
+  readonly productType?: string | undefined;
+  /** Serial-numbered instantiation of `productType` (e.g. "001"). */
+  readonly serial?: string | undefined;
+  /** Tasks comprising this unit; may span disciplines. */
+  readonly taskUniqueIds: ReadonlyArray<number>;
+}
+
+// ─────────────────────────────────────────────────────────────────
 // Constraint ADT (§4.2 / §4.3)
 //
-// Discriminated union; matches the v4 block roster in §4.3. The ADT is the
-// *interchange format* between blocks and the search; blocks emit constraint
-// variants, the search consumes them.
+// Discriminated union; the ADT is the *interchange format* between blocks and
+// the search — blocks emit constraint variants, the search consumes them.
+// Diverged from the v4 block roster in §4.3: LaydownSpaceCap and
+// AdjustmentTeamCap folded into ConcurrentUnitsLimit, MultiBayPrecedence
+// renamed UnitPrecedence (the spec doc predates the WorkUnit generalization).
 // ─────────────────────────────────────────────────────────────────
 
 export type Constraint =
@@ -94,9 +127,8 @@ export type Constraint =
   | CalendarsConstraint
   | MaxConcurrentResourceConstraint
   | PeakCapConstraint
-  | LaydownSpaceCapConstraint
-  | AdjustmentTeamCapConstraint
-  | MultiBayPrecedenceConstraint
+  | ConcurrentUnitsLimitConstraint
+  | UnitPrecedenceConstraint
   | UnimodalProfileConstraint
   | ModeSelectionConstraint
   | CrewFlowContinuityConstraint
@@ -126,27 +158,34 @@ export interface PeakCapConstraint {
   readonly window?: { readonly fromDay: DayIndex; readonly toDay: DayIndex };
 }
 
-export interface LaydownSpaceCapConstraint {
-  readonly kind: "LaydownSpaceCap";
-  readonly bayGroup: ReadonlyArray<number>;
-  readonly maxConcurrent: number;
+// WIP cap on whole work units. Prioritizes *completion*: caps how many units
+// have active work on any single day, so the search must finish open units
+// before opening more. `discipline` (a resourceUniqueId) narrows the count to
+// units with active work of that discipline — "≤ N bays in commissioning at
+// once" — leaving units idle in other disciplines uncounted. Omit `discipline`
+// for the whole-bay limit. Subsumes the former LaydownSpaceCap (whole-unit
+// staging) and AdjustmentTeamCap (a discipline-scoped cap); a pure crew-
+// throughput limit is still `MaxConcurrentResource`. Hard form; the soft
+// companion is the OpenUnitPenalty scorer.
+export interface ConcurrentUnitsLimitConstraint {
+  readonly kind: "ConcurrentUnitsLimit";
+  readonly units: ReadonlyArray<WorkUnit>;
+  /** resourceUniqueId scoping the count to one discipline; omit = any task. */
+  readonly discipline?: number | undefined;
+  readonly max: number;
 }
 
-export interface AdjustmentTeamCapConstraint {
-  readonly kind: "AdjustmentTeamCap";
-  readonly resourceUniqueId: number;
-  readonly maxTeams: number;
-}
-
-export interface MultiBayPrecedenceConstraint {
-  readonly kind: "MultiBayPrecedence";
-  readonly bayId: number;
-  readonly afterBayIds: ReadonlyArray<number>;
+// Unit-level precedence (generalizes the former MultiBayPrecedence): unit
+// `unitId` may not start until every unit in `afterUnitIds` has finished.
+export interface UnitPrecedenceConstraint {
+  readonly kind: "UnitPrecedence";
+  readonly unitId: number;
+  readonly afterUnitIds: ReadonlyArray<number>;
 }
 
 // R3: shape constraint, separate from the Smoothness *scorer*. A moment
 // minimizer will happily oscillate around a smooth mean — exactly what
-// the OHT install forbids.
+// a unimodal install profile forbids.
 export interface UnimodalProfileConstraint {
   readonly kind: "UnimodalProfile";
   readonly resourceUniqueId: number;
@@ -154,7 +193,7 @@ export interface UnimodalProfileConstraint {
   readonly allowSecondPeak?: boolean;
 }
 
-// Multi-mode RCPSP — the OHT script's central mode lever.
+// Multi-mode RCPSP — the central mode lever.
 export interface ModeSelectionConstraint {
   readonly kind: "ModeSelection";
   readonly taskUniqueId: number;
@@ -170,13 +209,14 @@ export interface TaskMode {
   }>;
 }
 
-// N5: LBMS-flavored — keeps a crew working a sequence of locations without
+// N5: LBMS-flavored — keeps a crew working a sequence of units without
 // idle gaps. The empirical premise of LBMS is that crew flow continuity
-// matters more than per-task makespan.
+// matters more than per-task makespan. `unitOrder` is the WorkUnit id
+// sequence the crew flows through.
 export interface CrewFlowContinuityConstraint {
   readonly kind: "CrewFlowContinuity";
   readonly resourceUniqueId: number;
-  readonly locationOrder: ReadonlyArray<number>;
+  readonly unitOrder: ReadonlyArray<number>;
 }
 
 export interface DeadlineConstraint {
