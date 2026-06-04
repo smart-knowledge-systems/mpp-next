@@ -1,6 +1,10 @@
 # levelset
 
-TypeScript library for reading Microsoft Project files (`.mpp` binary and `.mspdi` XML) and for **resource leveling** on the extracted schedule. The reader extracts tasks, resources, assignments, calendars, and relations into a structured `ProjectFile` object; the leveling toolkit (`level-core` + `level-blocks`) compiles constraints and scorers into a search that produces re-leveled schedules.
+A TypeScript **resource-leveling and project-scheduling toolkit**. You author constraints and scorers as composable blocks, run a schedule-generation search, and materialize a re-leveled schedule. The leveling layer (`level-core` + `level-blocks`) is the heart of the library and operates on any `ProjectFile`, wherever it came from.
+
+To get real project data in and out, levelset also bundles readers and writers for common formats — Microsoft Project (`.mpp` binary, `.mspdi` XML), plus JSON, CSV, and XLSX — so you can level an existing plan and write the result back. The reader extracts tasks, resources, assignments, calendars, and relations into a structured `ProjectFile`.
+
+Jump to **[Resource leveling](#resource-leveling)** for the scheduling toolkit, or read on for the file I/O.
 
 ## Install
 
@@ -115,12 +119,13 @@ Older MPP versions (8, 9, 12) are detected and produce a clear error message exp
 | Path                | Contents                                                                      |
 | ------------------- | ----------------------------------------------------------------------------- |
 | `levelset`          | Convenience functions (`readMpp`, `writeJson`, `writeCsv`, `writeXlsx`, etc.) |
+| `levelset/leveling` | Resource-leveling toolkit (`level-core` + `level-blocks`) — no file-I/O deps  |
 | `levelset/advanced` | Reader/writer classes, container utilities                                    |
 | `levelset/schema`   | Zod validation schemas for all model types                                    |
 
 ## Resource leveling
 
-> **Experimental / internal.** The leveling layer (`level-core`, `level-blocks`) is not yet a published package subpath — import it from the source modules as shown below. The API is still evolving; a `levelset/leveling` export will follow once it stabilizes.
+> **Experimental.** The leveling layer is published under the `levelset/leveling` subpath, but its API is still evolving and may change between minor versions before `1.0`. Importing it pulls only `zod` (a peer dependency) — none of the file-I/O dependencies (`exceljs`, `cfb`, `fast-xml-parser`), so the scheduler stays out of your bundle if you don't use the readers/writers.
 
 ### Pipeline
 
@@ -137,11 +142,8 @@ ProjectFile ──resolveCalendar──▶ ResolvedProject ──serialSGS.run(c
 - **`materialize`** writes a chosen `Schedule` back into a `ProjectFile` (round-tripping dates), ready for `writeMspdi` / `writeXlsx` / etc.
 
 ```ts
-import { resolveCalendar } from "./src/level-core/resolveCalendar.ts";
-import { serialSGS } from "./src/level-core/search/serialSGS.ts";
-import { streamFromFactory } from "./src/level-core/scheduleStream.ts";
-import { materialize } from "./src/level-core/materialize.ts";
-import type { Constraint, Scorer } from "./src/level-core/types.ts";
+import { resolveCalendar, serialSGS, streamFromFactory, materialize } from "levelset/leveling";
+import type { Constraint, Scorer } from "levelset/leveling";
 
 // 1. Resolve calendars → day-indexed working time
 const resolved = resolveCalendar(project);
@@ -208,7 +210,7 @@ A `Scorer` ranks a `Schedule` (`direction: "min" | "max"`); `stream.bestBy(score
 | `UnimodalDeviationBlock`      | How far a resource histogram departs from a single-peak shape                          |
 
 ```ts
-import { OpenUnitPenaltyBlock } from "./src/level-blocks/openUnitPenalty.ts";
+import { OpenUnitPenaltyBlock } from "levelset/leveling";
 
 // Soft WIP limit: leave 2 bays open for free, then penalize each extra open-bay-day.
 const wipPenalty = OpenUnitPenaltyBlock.apply({
