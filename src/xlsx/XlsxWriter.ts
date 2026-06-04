@@ -205,7 +205,6 @@ export class XlsxWriter {
         duration: task.duration?.value ?? null,
       });
 
-      // Date formatting
       if (startSerial) {
         row.getCell("start").numFmt = dateFormat;
       }
@@ -213,24 +212,21 @@ export class XlsxWriter {
         row.getCell("finish").numFmt = dateFormat;
       }
 
-      // Duration: custom format with unit suffix
       if (task.duration) {
         const label = durationUnitLabel(task.duration);
         row.getCell("duration").numFmt = `#,##0.##${label}`;
       }
 
-      // Indent task name based on outline level
       const outlineLevel = task.outlineLevel ?? 0;
       if (outlineLevel > 0) {
         row.getCell("name").alignment = { indent: (outlineLevel - 1) * 2 };
       }
 
-      // Summary rows get bold
       if (task.summary) {
         row.font = { bold: true };
       }
 
-      // Set row outline level for collapsible groups (max 7 in Excel)
+      // Excel caps the outline level at 7.
       if (outlineLevel > 0) {
         row.outlineLevel = Math.min(outlineLevel, 7);
       }
