@@ -127,6 +127,8 @@ Older MPP versions (8, 9, 12) are detected and produce a clear error message exp
 
 > **Experimental.** The leveling layer is published under the `levelset/leveling` subpath, but its API is still evolving and may change between minor versions before `1.0`. Importing it pulls only `zod` (a peer dependency) — none of the file-I/O dependencies (`exceljs`, `cfb`, `fast-xml-parser`), so the scheduler stays out of your bundle if you don't use the readers/writers.
 
+The engine's design is grounded in published research across constraint programming, project scheduling, solution diversity, hyper-heuristics, and LLM-assisted optimization modeling — see the [literature review](docs/literature-review.md) for the sources and how each one shapes the architecture.
+
 ### Pipeline
 
 The leveling flow is a sequence of small, composable steps:
@@ -156,8 +158,8 @@ const constraints: Constraint[] = [
     discipline: 200, // a resourceUniqueId; omit for a whole-unit cap
     max: 2,
     units: [
-      { id: 10, location: "Bay 03W", taskUniqueIds: [1, 2, 3] },
-      { id: 20, location: "Bay 03E", taskUniqueIds: [4, 5, 6] },
+      { id: 10, location: "Zone A", taskUniqueIds: [1, 2, 3] },
+      { id: 20, location: "Zone B", taskUniqueIds: [4, 5, 6] },
     ],
   },
 ];
@@ -177,7 +179,7 @@ if (best) {
 
 ### Work units
 
-A **`WorkUnit`** is the largest independent work package — the minimum complete increment that can be handed over (the "bay" in install scheduling). It carries optional `location` (where), `productType` + `serial` (the serial-numbered instance of a generic product), and the `taskUniqueIds` that comprise it. Units are what the WIP-limiting constraints and scorers operate on.
+A **`WorkUnit`** is the largest independent work package — the minimum complete increment that can be handed over (a building floor, a workcell, a release milestone — whatever the smallest shippable package is in your domain). It carries optional `location` (where), `productType` + `serial` (the serial-numbered instance of a generic product), and the `taskUniqueIds` that comprise it. Units are what the WIP-limiting constraints and scorers operate on.
 
 ### Constraints
 
@@ -196,7 +198,7 @@ Constraints are a discriminated union (`Constraint`) — the interchange format 
 | `ModeSelection`         | Multi-mode RCPSP — crew-size × duration trade-off per task               | No (annotation)         |
 | `CrewFlowContinuity`    | Keep a crew flowing through a unit sequence without idle gaps            | No (annotation)         |
 
-`ConcurrentUnitsLimit` is the hard WIP cap that prioritizes **completion**: cap how many units are open at once so the search finishes started units before opening more. Omit `discipline` for a whole-unit cap; set it to a `resourceUniqueId` for a per-discipline cap ("≤ 2 bays in commissioning at once"). It subsumes the former `LaydownSpaceCap`.
+`ConcurrentUnitsLimit` is the hard WIP cap that prioritizes **completion**: cap how many units are open at once so the search finishes started units before opening more. Omit `discipline` for a whole-unit cap; set it to a `resourceUniqueId` for a per-discipline cap ("≤ 2 units in a given phase at once"). It subsumes the former `LaydownSpaceCap`.
 
 ### Scorers (scoring blocks)
 
@@ -212,7 +214,7 @@ A `Scorer` ranks a `Schedule` (`direction: "min" | "max"`); `stream.bestBy(score
 ```ts
 import { OpenUnitPenaltyBlock } from "levelset/leveling";
 
-// Soft WIP limit: leave 2 bays open for free, then penalize each extra open-bay-day.
+// Soft WIP limit: leave 2 units open for free, then penalize each extra open-unit-day.
 const wipPenalty = OpenUnitPenaltyBlock.apply({
   units: [
     { id: 10, taskUniqueIds: [1, 2, 3] },

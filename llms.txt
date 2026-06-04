@@ -1,0 +1,139 @@
+# levelset
+
+> A TypeScript resource-leveling and project-scheduling toolkit. Author constraints and scorers as composable blocks, run a schedule-generation search over any `ProjectFile`, and materialize a re-leveled schedule. Bundled readers/writers move real plans in and out of Microsoft Project (`.mpp`, `.mspdi`), JSON, CSV, and XLSX.
+
+The library has two halves that can be used independently:
+
+- **Leveling** (`levelset/leveling`) — the scheduling engine: resolve calendars, search for feasible schedules under a set of constraints, score and pick among them, then write the result back. Pulls only `zod` (a peer dependency), so the file-I/O dependencies stay out of your bundle.
+- **File I/O** (`levelset`, `levelset/advanced`) — read a `.mpp`/`.mspdi`/JSON plan into a structured `ProjectFile`, or write a `ProjectFile` out as MSPDI, JSON, CSV, or XLSX. The MPP reader extracts tasks, resources, assignments, calendars, and relations.
+
+The unifying data type is `ProjectFile`: a plain object holding `tasks`, `resources`, `assignments`, `calendars`, `relations`, and `properties`. Readers produce it, writers consume it, and the leveling engine round-trips through it.
+
+## Core model
+
+- `ProjectFile` — the interchange document (tasks, resources, assignments, calendars, relations, properties).
+- `Task` — a unit of work with a `uniqueId`, `duration` (a `Duration` instance), dates, and `predecessors` (precedence edges).
+- `Resource` — a person, crew, equipment, or cost item, referenced by `uniqueId`.
+- `Assignment` — links a task to a resource with `units` (how many of that resource the task demands while active).
+- A **`WorkUnit`** is the largest independent work package — the minimum complete increment that can be handed over, grouping a set of `taskUniqueIds`. Work units are what the WIP-limiting constraints and scorers operate on.
+
+## Leveling pipeline
+
+The flow is a sequence of small composable steps:
+
+```
+ProjectFile ──resolveCalendar──▶ ResolvedProject ──serialSGS.run(constraints)──▶
+  ScheduleStream ──bestBy(scorer)──▶ Schedule ──materialize──▶ ProjectFile
+```
+
+- `resolveCalendar(project)` turns calendars into day-indexed working time (a bitmap + prefix sum) so "working days between A and B" is O(1).
+- `serialSGS` is a greedy serial Schedule Generation Scheme: topo-sort by precedence, then place each task on the earliest day that satisfies every constraint. It yields one feasible schedule per run via an async generator.
+- `ScheduleStream` is a lazy iterable of feasible schedules with `filter` / `map` / `take` / `branch` and the materializers `bestBy` / `paretoFrontier` / `collect`.
+- `materialize(schedule)` writes a chosen `Schedule` back into a `ProjectFile`, ready to hand to any writer.
+
+Minimal end-to-end example:
+
+```ts
+import { resolveCalendar, serialSGS, streamFromFactory, materialize } from "levelset/leveling";
+import type { Constraint, Scorer } from "levelset/leveling";
+
+const resolved = resolveCalendar(project);
+
+const constraints: Constraint[] = [
+  { kind: "MaxConcurrentResource", resourceUniqueId: 100, max: 3 },
+  {
+    kind: "ConcurrentUnitsLimit",
+    max: 2, // at most 2 work units open at once (a hard WIP cap)
+    units: [
+      { id: 10, taskUniqueIds: [1, 2, 3] },
+      { id: 20, taskUniqueIds: [4, 5, 6] },
+    ],
+  },
+];
+
+const stream = streamFromFactory(() => serialSGS.run(resolved, constraints));
+
+const makespan: Scorer = { name: "makespan", direction: "min", score: (s) => s.makespan };
+const best = await stream.bestBy(makespan);
+
+if (best) {
+  const leveled = materialize(best); // a ProjectFile you can write out
+}
+```
+
+## Constraints
+
+`Constraint` is a discriminated union (the `kind` field) — the interchange format between blocks and the search. `serialSGS` enforces a subset directly; the rest are recorded as `unsupportedConstraints` annotations on the emitted schedule (intended for a future CP-SAT / MiniZinc backend).
+
+Enforced by `serialSGS`:
+
+- `Precedence` — FS / SS / FF / SF edges with lag (FF/SF are approximated).
+- `MaxConcurrentResource` — at most N tasks may demand a given resource on any day (a crew/throughput cap).
+- `PeakCap` — sum of fractional units on a resource ≤ a cap (optionally windowed).
+- `ConcurrentUnitsLimit` — at most N work units have active work on any day; optional `discipline` (a `resourceUniqueId`) scopes the cap per-discipline. This is the hard WIP cap that prioritizes completion.
+- `Release` / `Deadline` — earliest-start / latest-finish bounds per task. (Pin a task to a fixed window by pairing a `Release` and a `Deadline` on it.)
+- `Calendars` — baked into `resolveCalendar` upstream.
+
+Recorded as annotations only (not yet enforced): `UnitPrecedence`, `UnimodalProfile`, `ModeSelection`, `CrewFlowContinuity`.
+
+## Scorers and blocks
+
+A `Scorer` ranks a `Schedule` (`direction: "min" | "max"`); `stream.bestBy(scorer)` picks the best. Scoring **blocks** (`level-blocks`) build configured scorers and also emit a MiniZinc fragment for the compiled backend.
+
+- `ConcurrentResourceCostBlock` — prices each marginal concurrent worker on an exponential curve (a soft `MaxConcurrentResource`).
+- `OpenUnitPenaltyBlock` — prices each open-unit-day beyond a `softMax` (a soft WIP limit).
+- `HiringLagPenaltyBlock` — prices week-over-week headcount increases (training/ramp cost).
+- `UnimodalDeviationBlock` — prices how far a resource histogram departs from a single-peak shape.
+
+Constraint blocks (`MaxConcurrentResourceBlock`, `ConcurrentUnitsLimitBlock`) build the corresponding hard `Constraint` plus a MiniZinc fragment.
+
+Note: because `serialSGS` emits a single schedule, a scorer currently *ranks* output rather than *steers* it. Scorers become an optimization lever once a multi-candidate search (restart / LDS / LNS) consumes them. Hard constraints are what shape `serialSGS` output today.
+
+## File I/O
+
+```ts
+import { readMpp, readMspdi, readJson, writeMspdi, writeJson, writeCsv, writeXlsx } from "levelset";
+
+const project = readMpp(mppBytes);        // Uint8Array | ArrayBuffer (MPP14+ / Project 2010+)
+const project2 = readMspdi(xmlString);    // MSPDI XML
+const json = writeJson(project);          // also writeMspdi, writeCsv
+const xlsx = await writeXlsx(project);    // returns a Uint8Array
+```
+
+| Format | Read | Write |
+| ------ | ---- | ----- |
+| MPP (binary, MPP14+) | Yes | No |
+| MSPDI (XML) | Yes | Yes |
+| JSON | Yes | Yes |
+| CSV | No | Yes |
+| XLSX | No | Yes |
+
+Validate untrusted JSON with `levelset/schema` (Zod schemas with transforms that rebuild `Duration` and `Date` instances): `ProjectFileSchema.safeParse(data)`.
+
+## Subpath exports
+
+- `levelset` — convenience functions (`readMpp`, `writeJson`, `writeCsv`, `writeXlsx`, …) and the core model types.
+- `levelset/leveling` — the resource-leveling toolkit (`level-core` + `level-blocks`); no file-I/O dependencies.
+- `levelset/advanced` — reader/writer classes and container utilities (`MppReader`, `MspdiWriter`, `parseMppBuffer`, `detectMppVariant`, …).
+- `levelset/schema` — Zod validation schemas for all model types.
+
+## Docs
+
+- [README](README.md): full usage guide — install, file I/O, the leveling toolkit, supported formats, and scripts.
+- [Literature review](docs/literature-review.md): the published research behind the engine's design (compositional constraint programming, lazy enumeration, hyper-heuristics, LLM-assisted optimization modeling).
+- [CHANGELOG](CHANGELOG.md): release history.
+
+## Source entry points
+
+- [src/index.ts](src/index.ts): the `levelset` convenience API (readers/writers + model types).
+- [src/leveling.ts](src/leveling.ts): the `levelset/leveling` surface (core types, pipeline functions, blocks).
+- [src/level-core](src/level-core): the leveling engine — `resolveCalendar`, `serialSGS`, `scheduleStream`, `materialize`, `types.ts` (the `Constraint`/`Schedule`/`Scorer` definitions).
+- [src/level-blocks](src/level-blocks): configured constraint and scorer blocks.
+- [src/model](src/model): the `ProjectFile` model (`Task`, `Resource`, `Assignment`, `Calendar`, `Relation`, `Duration`).
+
+## Optional
+
+- [src/advanced.ts](src/advanced.ts): lower-level reader/writer classes and MPP container inspection.
+- [src/schema](src/schema): Zod schemas exported under `levelset/schema`.
+- [src/mpp](src/mpp), [src/mspdi](src/mspdi), [src/json](src/json), [src/csv](src/csv), [src/xlsx](src/xlsx): per-format reader/writer implementations.
+- [test](test): the test suite, a source of worked usage examples.
