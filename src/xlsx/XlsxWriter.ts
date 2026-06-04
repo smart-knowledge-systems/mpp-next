@@ -9,7 +9,7 @@ export interface XlsxWriterOptions {
   sheetName?: string;
 }
 
-export interface GanttBay {
+export interface GanttBar {
   name: string;
   /** ISO date string YYYY-MM-DD. */
   start: string;
@@ -19,7 +19,7 @@ export interface GanttBay {
 
 export interface GanttPhase {
   label: string;
-  bays: GanttBay[];
+  items: GanttBar[];
 }
 
 export interface GanttSpec {
@@ -107,10 +107,10 @@ export class XlsxWriter {
     gantt: GanttSpec,
     options?: XlsxWriterOptions,
   ): Promise<Uint8Array> {
-    const flat: Array<{ phaseIdx: number; bay: GanttBay }> = [];
+    const flat: Array<{ phaseIdx: number; bar: GanttBar }> = [];
     for (let pi = 0; pi < gantt.phases.length; pi += 1) {
-      for (const bay of gantt.phases[pi]!.bays) {
-        flat.push({ phaseIdx: pi, bay });
+      for (const bar of gantt.phases[pi]!.items) {
+        flat.push({ phaseIdx: pi, bar });
       }
     }
 
@@ -119,18 +119,18 @@ export class XlsxWriter {
     }
 
     flat.sort((a, b) => {
-      const sa = ymdToSerial(a.bay.start);
-      const sb = ymdToSerial(b.bay.start);
+      const sa = ymdToSerial(a.bar.start);
+      const sb = ymdToSerial(b.bar.start);
       if (sa !== sb) return sa - sb;
-      return a.bay.name.localeCompare(b.bay.name);
+      return a.bar.name.localeCompare(b.bar.name);
     });
 
     const colors = gantt.phaseColors ?? DEFAULT_PHASE_COLORS;
-    const items = flat.map(({ phaseIdx, bay }) => {
-      const offset = ymdToSerial(bay.start);
-      const finish = ymdToSerial(bay.finish);
+    const items = flat.map(({ phaseIdx, bar }) => {
+      const offset = ymdToSerial(bar.start);
+      const finish = ymdToSerial(bar.finish);
       return {
-        label: `${gantt.phases[phaseIdx]!.label}: ${bay.name}`,
+        label: `${gantt.phases[phaseIdx]!.label}: ${bar.name}`,
         offset,
         duration: Math.max(1, finish - offset),
         color: colors[phaseIdx % colors.length]!,
@@ -144,7 +144,7 @@ export class XlsxWriter {
 
     const dataSheetName = "_Gantt Data";
     const dataSheet = workbook.addWorksheet(dataSheetName, { state: "hidden" });
-    dataSheet.addRow(["Bay", "Offset", "Duration"]);
+    dataSheet.addRow(["Item", "Offset", "Duration"]);
     for (const item of items) {
       dataSheet.addRow([item.label, item.offset, item.duration]);
     }
