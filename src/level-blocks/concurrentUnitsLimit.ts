@@ -4,7 +4,7 @@
 // `MaxConcurrentResource` caps crew/throughput (resource-hours), this caps how
 // many *units* have active work on any single day — pressuring the search to
 // finish open units before opening more. Subsumes the former LaydownSpaceCap
-// (whole-unit staging) and AdjustmentTeamCap (discipline-scoped).
+// (whole-unit staging).
 //
 //   • whole-bay limit   — omit `discipline`: "≤ N bays open at once"
 //   • discipline limit   — set `discipline` to a resourceUniqueId: "≤ N bays

@@ -117,9 +117,9 @@ export interface WorkUnit {
 //
 // Discriminated union; the ADT is the *interchange format* between blocks and
 // the search — blocks emit constraint variants, the search consumes them.
-// Diverged from the v4 block roster in §4.3: LaydownSpaceCap and
-// AdjustmentTeamCap folded into ConcurrentUnitsLimit, MultiBayPrecedence
-// renamed UnitPrecedence (the spec doc predates the WorkUnit generalization).
+// Diverged from the v4 block roster in §4.3: LaydownSpaceCap folded into
+// ConcurrentUnitsLimit, MultiBayPrecedence renamed UnitPrecedence (the spec
+// doc predates the WorkUnit generalization).
 // ─────────────────────────────────────────────────────────────────
 
 export type Constraint =
@@ -164,8 +164,8 @@ export interface PeakCapConstraint {
 // units with active work of that discipline — "≤ N bays in commissioning at
 // once" — leaving units idle in other disciplines uncounted. Omit `discipline`
 // for the whole-bay limit. Subsumes the former LaydownSpaceCap (whole-unit
-// staging) and AdjustmentTeamCap (a discipline-scoped cap); a pure crew-
-// throughput limit is still `MaxConcurrentResource`. Hard form; the soft
+// staging); a pure crew-throughput limit is still `MaxConcurrentResource`.
+// Hard form; the soft
 // companion is the OpenUnitPenalty scorer.
 export interface ConcurrentUnitsLimitConstraint {
   readonly kind: "ConcurrentUnitsLimit";

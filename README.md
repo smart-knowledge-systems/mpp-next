@@ -194,7 +194,7 @@ Constraints are a discriminated union (`Constraint`) — the interchange format 
 | `ModeSelection`         | Multi-mode RCPSP — crew-size × duration trade-off per task               | No (annotation)         |
 | `CrewFlowContinuity`    | Keep a crew flowing through a unit sequence without idle gaps            | No (annotation)         |
 
-`ConcurrentUnitsLimit` is the hard WIP cap that prioritizes **completion**: cap how many units are open at once so the search finishes started units before opening more. Omit `discipline` for a whole-unit cap; set it to a `resourceUniqueId` for a per-discipline cap ("≤ 2 bays in commissioning at once"). It subsumes the former `LaydownSpaceCap` and `AdjustmentTeamCap`.
+`ConcurrentUnitsLimit` is the hard WIP cap that prioritizes **completion**: cap how many units are open at once so the search finishes started units before opening more. Omit `discipline` for a whole-unit cap; set it to a `resourceUniqueId` for a per-discipline cap ("≤ 2 bays in commissioning at once"). It subsumes the former `LaydownSpaceCap`.
 
 ### Scorers (scoring blocks)
 
