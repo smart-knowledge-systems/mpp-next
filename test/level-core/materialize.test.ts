@@ -116,7 +116,7 @@ describe("materialize — round-trip", () => {
     expect(resolved2.tasks[0]!.durationDays).toBe(resolved1.tasks[0]!.durationDays);
   });
 
-  test("MSPDI Fri 17:00 finish round-trips through midnight normalization (N3)", () => {
+  test("MSPDI Fri 17:00 finish round-trips through midnight normalization", () => {
     const friAt17 = new Date(2026, 0, 9, 17, 0, 0);
     const project = makeProject([makeTask({ uniqueId: 1, start: MON_JAN_5, finish: friAt17 })]);
     const out = materialize(currentSchedule(resolveCalendar(project)));

@@ -116,7 +116,7 @@ describe("advanceWorkingDays", () => {
   });
 });
 
-describe("dayToDate / dateToDay round trip (R4)", () => {
+describe("dayToDate / dateToDay round trip", () => {
   const cal = buildWorkingCalendar(monFri, 1, epoch, 60);
 
   test("dateToDay(dayToDate(d)) === d for every d in horizon", () => {

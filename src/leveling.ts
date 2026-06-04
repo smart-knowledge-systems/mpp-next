@@ -7,7 +7,7 @@
 // into your bundle.
 
 // ── Core types & signatures ──────────────────────────────────────────
-// Types only: the `declare function` spec stubs in level-core/types.ts have
+// Types only: the `declare function` stubs in level-core/types.ts have
 // no runtime; their real implementations are re-exported from the modules
 // below (resolveCalendar, materialize, dayToDate, …).
 export type {

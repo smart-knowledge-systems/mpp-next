@@ -1,6 +1,3 @@
-// Zod schemas for levelset model validation
-// Usage: import { ProjectFileSchema } from "levelset/schema";
-
 export { ProjectFileSchema, ProjectPropertiesSchema } from "./project.ts";
 export type { ProjectFile, ProjectProperties } from "./project.ts";
 export { TaskSchema } from "./task.ts";
