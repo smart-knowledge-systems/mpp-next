@@ -6,7 +6,7 @@ import {
 } from "../../src/level-blocks/openUnitPenalty.ts";
 import { resolveCalendar } from "../../src/level-core/resolveCalendar.ts";
 import { ResourceType } from "../../src/model/types.ts";
-import type { Schedule, ScheduledTask } from "../../src/level-core/types.ts";
+import type { Schedule, ScheduledTask, WorkUnit } from "../../src/level-core/types.ts";
 import type { Calendar } from "../../src/schema/calendar.ts";
 import type { ProjectFile } from "../../src/schema/project.ts";
 
@@ -31,6 +31,7 @@ function makeSchedule(opts: {
   scheduledTasks: ScheduledTask[];
   resourceUniqueIds: number[];
   assignments: Array<{ taskUniqueId: number; resourceUniqueId: number }>;
+  workUnits?: WorkUnit[];
 }): Schedule {
   const calendars = [monFriCalendar()];
   const epoch = new Date(2026, 0, 5); // Mon Jan 5
@@ -106,24 +107,24 @@ function makeSchedule(opts: {
     })),
     calendars,
   };
-  const resolved = resolveCalendar(project);
+  const resolved = resolveCalendar(project, { workUnits: opts.workUnits });
   const makespan = opts.scheduledTasks.reduce((m, t) => Math.max(m, t.finishDay), 0);
   return { resolved, tasks: opts.scheduledTasks, makespan, annotations: new Map() };
 }
 
 describe("OpenUnitPenaltyBlock — input schema", () => {
   test("defaults softMax=0 and weight=1", () => {
-    const parsed = OpenUnitPenaltyInputSchema.parse({ units: [{ id: 1, taskUniqueIds: [1] }] });
+    const parsed = OpenUnitPenaltyInputSchema.parse({ unitIds: [1] });
     expect(parsed.softMax).toBe(0);
     expect(parsed.weight).toBe(1);
   });
 
   test("rejects negative softMax", () => {
-    expect(() => OpenUnitPenaltyInputSchema.parse({ units: [], softMax: -1 })).toThrow();
+    expect(() => OpenUnitPenaltyInputSchema.parse({ unitIds: [], softMax: -1 })).toThrow();
   });
 
   test("rejects non-positive weight", () => {
-    expect(() => OpenUnitPenaltyInputSchema.parse({ units: [], weight: 0 })).toThrow();
+    expect(() => OpenUnitPenaltyInputSchema.parse({ unitIds: [], weight: 0 })).toThrow();
   });
 });
 
@@ -141,15 +142,12 @@ describe("OpenUnitPenaltyBlock — apply (whole-bay)", () => {
         { uniqueId: 1, startDay: 0, finishDay: 5, modeId: null },
         { uniqueId: 2, startDay: 0, finishDay: 5, modeId: null },
       ],
-    });
-    const scorer = OpenUnitPenaltyBlock.apply({
-      units: [
+      workUnits: [
         { id: 10, taskUniqueIds: [1] },
         { id: 20, taskUniqueIds: [2] },
       ],
-      softMax: 1,
-      weight: 1,
     });
+    const scorer = OpenUnitPenaltyBlock.apply({ unitIds: [10, 20], softMax: 1, weight: 1 });
     expect(scorer.score(schedule)).toBe(5);
   });
 
@@ -164,15 +162,12 @@ describe("OpenUnitPenaltyBlock — apply (whole-bay)", () => {
         { uniqueId: 1, startDay: 0, finishDay: 5, modeId: null },
         { uniqueId: 2, startDay: 0, finishDay: 5, modeId: null },
       ],
-    });
-    const scorer = OpenUnitPenaltyBlock.apply({
-      units: [
+      workUnits: [
         { id: 10, taskUniqueIds: [1] },
         { id: 20, taskUniqueIds: [2] },
       ],
-      softMax: 2,
-      weight: 1,
     });
+    const scorer = OpenUnitPenaltyBlock.apply({ unitIds: [10, 20], softMax: 2, weight: 1 });
     expect(scorer.score(schedule)).toBe(0);
   });
 
@@ -191,12 +186,9 @@ describe("OpenUnitPenaltyBlock — apply (whole-bay)", () => {
         { uniqueId: 1, startDay: 0, finishDay: 1, modeId: null },
         { uniqueId: 2, startDay: 3, finishDay: 4, modeId: null },
       ],
+      workUnits: [{ id: 10, taskUniqueIds: [1, 2] }],
     });
-    const scorer = OpenUnitPenaltyBlock.apply({
-      units: [{ id: 10, taskUniqueIds: [1, 2] }],
-      softMax: 0,
-      weight: 1,
-    });
+    const scorer = OpenUnitPenaltyBlock.apply({ unitIds: [10], softMax: 0, weight: 1 });
     expect(scorer.score(schedule)).toBe(4);
   });
 
@@ -205,14 +197,26 @@ describe("OpenUnitPenaltyBlock — apply (whole-bay)", () => {
       resourceUniqueIds: [100],
       assignments: [{ taskUniqueId: 1, resourceUniqueId: 100 }],
       scheduledTasks: [{ uniqueId: 1, startDay: 0, finishDay: 5, modeId: null }],
+      workUnits: [{ id: 10, taskUniqueIds: [1] }],
     });
-    const scorer = OpenUnitPenaltyBlock.apply({
-      units: [{ id: 10, taskUniqueIds: [1] }],
-      softMax: 0,
-      weight: 10,
-    });
+    const scorer = OpenUnitPenaltyBlock.apply({ unitIds: [10], softMax: 0, weight: 10 });
     // 5 working days open × 10 = 50.
     expect(scorer.score(schedule)).toBe(50);
+  });
+
+  test("a duplicate unit reference counts the unit once (set semantics)", () => {
+    // unitIds:[10,10] must score the same as [10] — matches MiniZinc's `{10,10}`
+    // set collapse and prevents JS/MiniZinc objective divergence.
+    const schedule = makeSchedule({
+      resourceUniqueIds: [100],
+      assignments: [{ taskUniqueId: 1, resourceUniqueId: 100 }],
+      scheduledTasks: [{ uniqueId: 1, startDay: 0, finishDay: 5, modeId: null }],
+      workUnits: [{ id: 10, taskUniqueIds: [1] }],
+    });
+    const once = OpenUnitPenaltyBlock.apply({ unitIds: [10], softMax: 0, weight: 1 });
+    const twice = OpenUnitPenaltyBlock.apply({ unitIds: [10, 10], softMax: 0, weight: 1 });
+    expect(twice.score(schedule)).toBe(once.score(schedule));
+    expect(twice.score(schedule)).toBe(5);
   });
 });
 
@@ -231,9 +235,10 @@ describe("OpenUnitPenaltyBlock — apply (discipline-scoped)", () => {
         { uniqueId: 1, startDay: 0, finishDay: 1, modeId: null },
         { uniqueId: 2, startDay: 0, finishDay: 5, modeId: null },
       ],
+      workUnits: [{ id: 10, taskUniqueIds: [1, 2] }],
     });
     const scorer = OpenUnitPenaltyBlock.apply({
-      units: [{ id: 10, taskUniqueIds: [1, 2] }],
+      unitIds: [10],
       discipline: 200,
       softMax: 0,
       weight: 1,
@@ -244,14 +249,7 @@ describe("OpenUnitPenaltyBlock — apply (discipline-scoped)", () => {
 
 describe("OpenUnitPenaltyBlock — toMiniZinc", () => {
   test("emits a per-day soft penalty over the open-span matrix", () => {
-    const fragment = OpenUnitPenaltyBlock.toMiniZinc({
-      units: [
-        { id: 10, taskUniqueIds: [1] },
-        { id: 20, taskUniqueIds: [2] },
-      ],
-      softMax: 1,
-      weight: 2,
-    });
+    const fragment = OpenUnitPenaltyBlock.toMiniZinc({ unitIds: [10, 20], softMax: 1, weight: 2 });
     expect(fragment.text).toContain("open_unit_penalty");
     expect(fragment.text).toContain("unit_open_span[u,d]");
     expect(fragment.text).toContain("sum(u in {10,20})");
@@ -262,7 +260,9 @@ describe("OpenUnitPenaltyBlock — toMiniZinc", () => {
 describe("OpenUnitPenaltyBlock — metadata", () => {
   test("has stable id, min direction, and non-empty doc", () => {
     expect(OpenUnitPenaltyBlock.id).toBe("OpenUnitPenalty");
-    expect(OpenUnitPenaltyBlock.apply({ units: [], softMax: 0, weight: 1 }).direction).toBe("min");
+    expect(OpenUnitPenaltyBlock.apply({ unitIds: [], softMax: 0, weight: 1 }).direction).toBe(
+      "min",
+    );
     expect(OpenUnitPenaltyBlock.doc.nl.length).toBeGreaterThan(0);
     expect(OpenUnitPenaltyBlock.doc.pseudocode.length).toBeGreaterThan(0);
   });

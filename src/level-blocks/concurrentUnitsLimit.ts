@@ -25,16 +25,8 @@ import type { ConcurrentUnitsLimitConstraint } from "../level-core/types.ts";
 
 import type { ConstraintBlock, MiniZincFragment } from "./types.ts";
 
-const WorkUnitSchema = z.object({
-  id: z.number().int(),
-  location: z.string().optional(),
-  productType: z.string().optional(),
-  serial: z.string().optional(),
-  taskUniqueIds: z.array(z.number().int()),
-});
-
 export const ConcurrentUnitsLimitInputSchema = z.object({
-  units: z.array(WorkUnitSchema),
+  unitIds: z.array(z.number().int()),
   discipline: z.number().int().optional(),
   max: z.number().int().positive(),
 });
@@ -43,7 +35,7 @@ export type ConcurrentUnitsLimitInput = z.infer<typeof ConcurrentUnitsLimitInput
 
 const ConcurrentUnitsLimitOutputSchema: z.ZodType<ConcurrentUnitsLimitConstraint> = z.object({
   kind: z.literal("ConcurrentUnitsLimit"),
-  units: z.array(WorkUnitSchema),
+  unitIds: z.array(z.number().int()),
   discipline: z.number().int().optional(),
   max: z.number().int().positive(),
 });
@@ -54,21 +46,21 @@ export const ConcurrentUnitsLimitBlock: ConstraintBlock<ConcurrentUnitsLimitInpu
     input: ConcurrentUnitsLimitInputSchema,
     output: ConcurrentUnitsLimitOutputSchema,
   },
-  apply: ({ units, discipline, max }): ConcurrentUnitsLimitConstraint => ({
+  apply: ({ unitIds, discipline, max }): ConcurrentUnitsLimitConstraint => ({
     kind: "ConcurrentUnitsLimit",
-    units,
+    unitIds,
     discipline,
     max,
   }),
-  toMiniZinc: ({ units, max }): MiniZincFragment => {
-    const unitIds = units.map((u) => String(u.id)).join(",");
+  toMiniZinc: ({ unitIds, max }): MiniZincFragment => {
+    const unitIdList = unitIds.map(String).join(",");
     return {
       // `unit_open[u,d]` is supplied/derived by the harness as
       // `exists(t in unit_tasks[u])(active[t,d])`, with unit_tasks already
       // discipline-filtered. Cap the count of open units per day.
       text:
         `constraint forall(d in DAYS) ` +
-        `( sum(u in {${unitIds}}) (bool2int(unit_open[u,d])) <= ${String(max)} );`,
+        `( sum(u in {${unitIdList}}) (bool2int(unit_open[u,d])) <= ${String(max)} );`,
     };
   },
   doc: {

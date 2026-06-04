@@ -5,7 +5,13 @@ import { ScheduleStreamImpl } from "../../src/level-core/scheduleStream.ts";
 import { serialSGS } from "../../src/level-core/search/serialSGS.ts";
 import { Duration } from "../../src/model/Duration.ts";
 import { RelationType, ResourceType, TimeUnit } from "../../src/model/types.ts";
-import type { Constraint, Explanation, Failure, Schedule } from "../../src/level-core/types.ts";
+import type {
+  Constraint,
+  Explanation,
+  Failure,
+  Schedule,
+  WorkUnit,
+} from "../../src/level-core/types.ts";
 import type { Calendar } from "../../src/schema/calendar.ts";
 import type { ProjectFile } from "../../src/schema/project.ts";
 import type { Relation } from "../../src/schema/relation.ts";
@@ -107,8 +113,9 @@ const SAT_JAN_10 = new Date(2026, 0, 10);
 async function runOnce(
   project: ProjectFile,
   constraints: ReadonlyArray<Constraint>,
+  workUnits?: ReadonlyArray<WorkUnit>,
 ): Promise<Schedule> {
-  const resolved = resolveCalendar(project);
+  const resolved = resolveCalendar(project, { workUnits });
   const stream = new ScheduleStreamImpl({
     [Symbol.asyncIterator]: () => serialSGS.run(resolved, constraints),
   });
@@ -486,16 +493,14 @@ describe("serialSGS — unit caps (ConcurrentUnitsLimit)", () => {
   test("whole-bay limit max=1 serializes two single-task units", async () => {
     const t1 = makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 });
     const t2 = makeTask({ uniqueId: 2, start: MON_JAN_5, finish: SAT_JAN_10 });
-    const schedule = await runOnce(makeProject([t1, t2]), [
-      {
-        kind: "ConcurrentUnitsLimit",
-        units: [
-          { id: 10, taskUniqueIds: [1] },
-          { id: 20, taskUniqueIds: [2] },
-        ],
-        max: 1,
-      },
-    ]);
+    const schedule = await runOnce(
+      makeProject([t1, t2]),
+      [{ kind: "ConcurrentUnitsLimit", unitIds: [10, 20], max: 1 }],
+      [
+        { id: 10, taskUniqueIds: [1] },
+        { id: 20, taskUniqueIds: [2] },
+      ],
+    );
     const t1s = schedule.tasks.find((t) => t.uniqueId === 1)!;
     const t2s = schedule.tasks.find((t) => t.uniqueId === 2)!;
     expect(t1s.startDay).toBe(0);
@@ -507,16 +512,14 @@ describe("serialSGS — unit caps (ConcurrentUnitsLimit)", () => {
   test("whole-bay limit max=2 permits both units in parallel", async () => {
     const t1 = makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 });
     const t2 = makeTask({ uniqueId: 2, start: MON_JAN_5, finish: SAT_JAN_10 });
-    const schedule = await runOnce(makeProject([t1, t2]), [
-      {
-        kind: "ConcurrentUnitsLimit",
-        units: [
-          { id: 10, taskUniqueIds: [1] },
-          { id: 20, taskUniqueIds: [2] },
-        ],
-        max: 2,
-      },
-    ]);
+    const schedule = await runOnce(
+      makeProject([t1, t2]),
+      [{ kind: "ConcurrentUnitsLimit", unitIds: [10, 20], max: 2 }],
+      [
+        { id: 10, taskUniqueIds: [1] },
+        { id: 20, taskUniqueIds: [2] },
+      ],
+    );
     expect(schedule.tasks.find((t) => t.uniqueId === 1)!.startDay).toBe(0);
     expect(schedule.tasks.find((t) => t.uniqueId === 2)!.startDay).toBe(0);
   });
@@ -526,13 +529,11 @@ describe("serialSGS — unit caps (ConcurrentUnitsLimit)", () => {
     // two tasks of unit 10 to run together — one open unit, not two.
     const t1 = makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 });
     const t2 = makeTask({ uniqueId: 2, start: MON_JAN_5, finish: SAT_JAN_10 });
-    const schedule = await runOnce(makeProject([t1, t2]), [
-      {
-        kind: "ConcurrentUnitsLimit",
-        units: [{ id: 10, taskUniqueIds: [1, 2] }],
-        max: 1,
-      },
-    ]);
+    const schedule = await runOnce(
+      makeProject([t1, t2]),
+      [{ kind: "ConcurrentUnitsLimit", unitIds: [10], max: 1 }],
+      [{ id: 10, taskUniqueIds: [1, 2] }],
+    );
     expect(schedule.tasks.find((t) => t.uniqueId === 1)!.startDay).toBe(0);
     expect(schedule.tasks.find((t) => t.uniqueId === 2)!.startDay).toBe(0);
   });
@@ -550,17 +551,14 @@ describe("serialSGS — unit caps (ConcurrentUnitsLimit)", () => {
       resources: [crewResource, elecResource],
       assignments: [assignment(1, 200), assignment(2, 100), assignment(3, 200), assignment(4, 100)],
     });
-    const schedule = await runOnce(project, [
-      {
-        kind: "ConcurrentUnitsLimit",
-        discipline: 200,
-        units: [
-          { id: 10, taskUniqueIds: [1, 2] },
-          { id: 20, taskUniqueIds: [3, 4] },
-        ],
-        max: 1,
-      },
-    ]);
+    const schedule = await runOnce(
+      project,
+      [{ kind: "ConcurrentUnitsLimit", discipline: 200, unitIds: [10, 20], max: 1 }],
+      [
+        { id: 10, taskUniqueIds: [1, 2] },
+        { id: 20, taskUniqueIds: [3, 4] },
+      ],
+    );
     const by = new Map(schedule.tasks.map((t) => [t.uniqueId, t]));
     // Electrical work serializes across the two units.
     expect(by.get(1)!.startDay).toBe(0);

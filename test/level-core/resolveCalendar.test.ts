@@ -409,3 +409,33 @@ describe("resolveCalendar — error paths", () => {
     );
   });
 });
+
+describe("resolveCalendar — WorkUnit registry", () => {
+  const task = makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 });
+
+  test("resolves WorkUnits into a by-id registry", () => {
+    const resolved = resolveCalendar(makeProject([task]), {
+      workUnits: [
+        { id: 10, taskUniqueIds: [1] },
+        { id: 20, taskUniqueIds: [2] },
+      ],
+    });
+    expect(resolved.workUnits.size).toBe(2);
+    expect(resolved.workUnits.get(10)!.taskUniqueIds).toEqual([1]);
+  });
+
+  test("defaults to an empty registry when no workUnits are given", () => {
+    expect(resolveCalendar(makeProject([task])).workUnits.size).toBe(0);
+  });
+
+  test("rejects duplicate WorkUnit ids", () => {
+    expect(() =>
+      resolveCalendar(makeProject([task]), {
+        workUnits: [
+          { id: 10, taskUniqueIds: [1] },
+          { id: 10, taskUniqueIds: [2] },
+        ],
+      }),
+    ).toThrow(/duplicate WorkUnit id 10/);
+  });
+});

@@ -122,7 +122,9 @@ function preprocess(
                   .map((a) => a.taskUniqueId),
               );
         const taskUnits = new Map<number, number[]>();
-        for (const unit of c.units) {
+        for (const unitId of new Set(c.unitIds)) {
+          const unit = resolved.workUnits.get(unitId);
+          if (!unit) continue;
           for (const taskId of unit.taskUniqueIds) {
             if (disciplineTasks && !disciplineTasks.has(taskId)) continue;
             let arr = taskUnits.get(taskId);
@@ -130,7 +132,7 @@ function preprocess(
               arr = [];
               taskUnits.set(taskId, arr);
             }
-            if (!arr.includes(unit.id)) arr.push(unit.id);
+            if (!arr.includes(unitId)) arr.push(unitId);
           }
         }
         unitCaps.push({ max: c.max, taskUnits });

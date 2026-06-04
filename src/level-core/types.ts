@@ -78,6 +78,10 @@ export interface ResolvedProject {
   readonly resources: ReadonlyArray<ResolvedResource>;
   readonly assignments: ReadonlyArray<ResolvedAssignment>;
   readonly precedences: ReadonlyArray<PrecedenceEdge>;
+  // Canonical WorkUnit registry — the single owner of unit definitions.
+  // Keyed by id, so a unit id maps to exactly one definition; constraints and
+  // scoring blocks reference units by id rather than carrying copies.
+  readonly workUnits: ReadonlyMap<number, WorkUnit>;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -164,7 +168,9 @@ export interface PeakCapConstraint {
 // OpenUnitPenalty scorer.
 export interface ConcurrentUnitsLimitConstraint {
   readonly kind: "ConcurrentUnitsLimit";
-  readonly units: ReadonlyArray<WorkUnit>;
+  // Ids into ResolvedProject.workUnits. The set of units this cap governs;
+  // treated as a set (duplicate references collapse).
+  readonly unitIds: ReadonlyArray<number>;
   /** resourceUniqueId scoping the count to one discipline; omit = any task. */
   readonly discipline?: number | undefined;
   readonly max: number;
@@ -398,6 +404,9 @@ export interface ResolveOptions {
   readonly epoch?: Date;
   /** Default = ceil(span(project) * 1.25), bounded by 10 years. */
   readonly horizonDays?: number;
+  /** WorkUnit definitions for this project; resolved into a by-id registry.
+   *  Duplicate ids are rejected. */
+  readonly workUnits?: ReadonlyArray<WorkUnit> | undefined;
 }
 
 export declare function resolveCalendar(project: Project, opts?: ResolveOptions): ResolvedProject;

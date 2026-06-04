@@ -27,16 +27,8 @@ import type { Schedule, Scorer } from "../level-core/types.ts";
 
 import type { MiniZincFragment, ScoringBlock } from "./types.ts";
 
-const WorkUnitSchema = z.object({
-  id: z.number().int(),
-  location: z.string().optional(),
-  productType: z.string().optional(),
-  serial: z.string().optional(),
-  taskUniqueIds: z.array(z.number().int()),
-});
-
 export const OpenUnitPenaltyInputSchema = z.object({
-  units: z.array(WorkUnitSchema),
+  unitIds: z.array(z.number().int()),
   discipline: z.number().int().optional(),
   softMax: z.number().int().nonnegative().default(0),
   weight: z.number().positive().default(1),
@@ -57,7 +49,10 @@ export const OpenUnitPenaltyBlock: ScoringBlock<OpenUnitPenaltyInput> = {
   id: "OpenUnitPenalty",
   schema: { input: OpenUnitPenaltyInputSchema, output: ScorerOutputSchema },
   apply: (input): Scorer => {
-    const { units, discipline, softMax, weight } = OpenUnitPenaltyInputSchema.parse(input);
+    const { unitIds, discipline, softMax, weight } = OpenUnitPenaltyInputSchema.parse(input);
+    // MiniZinc treats the id list as a set, so iterate distinct ids here too —
+    // a duplicate reference must not double-count a unit's open span.
+    const distinctUnitIds = [...new Set(unitIds)];
     return {
       name: `OpenUnitPenalty[${discipline === undefined ? "all" : `r=${String(discipline)}`}]`,
       direction: "min",
@@ -75,7 +70,9 @@ export const OpenUnitPenaltyBlock: ScoringBlock<OpenUnitPenaltyInput> = {
 
         // Per working day, how many units are open (first start ≤ d < last finish).
         const openCount = new Int32Array(cal.horizonDays);
-        for (const unit of units) {
+        for (const unitId of distinctUnitIds) {
+          const unit = schedule.resolved.workUnits.get(unitId);
+          if (!unit) continue;
           let spanStart = Infinity;
           let spanFinish = -Infinity;
           for (const taskId of unit.taskUniqueIds) {
@@ -101,13 +98,13 @@ export const OpenUnitPenaltyBlock: ScoringBlock<OpenUnitPenaltyInput> = {
     };
   },
   toMiniZinc: (input): MiniZincFragment => {
-    const { units, softMax, weight } = OpenUnitPenaltyInputSchema.parse(input);
-    const unitIds = units.map((u) => String(u.id)).join(",");
+    const { unitIds, softMax, weight } = OpenUnitPenaltyInputSchema.parse(input);
+    const unitIdList = unitIds.map(String).join(",");
     return {
       text:
         `var float: open_unit_penalty = sum(d in DAYS) ` +
         `( ${String(weight)} * max(0, ` +
-        `sum(u in {${unitIds}}) (bool2int(unit_open_span[u,d])) - ${String(softMax)}) );`,
+        `sum(u in {${unitIdList}}) (bool2int(unit_open_span[u,d])) - ${String(softMax)}) );`,
     };
   },
   doc: {

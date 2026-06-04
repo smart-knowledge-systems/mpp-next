@@ -21,6 +21,7 @@ import type {
   ResolvedProject,
   ResolvedResource,
   ResolvedTask,
+  WorkUnit,
   WorkingCalendar,
 } from "./types.ts";
 
@@ -277,6 +278,22 @@ function buildCalendarMap(
   return map;
 }
 
+/** Canonicalize WorkUnits into a by-id registry, the single owner of unit
+ *  definitions. Rejects duplicate ids so a unit id maps to exactly one
+ *  definition across every consumer (JS scorers and the MiniZinc backend). */
+export function resolveWorkUnits(
+  units: ReadonlyArray<WorkUnit> = [],
+): ReadonlyMap<number, WorkUnit> {
+  const map = new Map<number, WorkUnit>();
+  for (const u of units) {
+    if (map.has(u.id)) {
+      throw new Error(`resolveWorkUnits: duplicate WorkUnit id ${String(u.id)}`);
+    }
+    map.set(u.id, u);
+  }
+  return map;
+}
+
 function pickDefaultCalendar(project: ProjectFile): {
   calendar: Calendar;
   uniqueId: number | null;
@@ -313,6 +330,7 @@ export function resolveCalendar(project: ProjectFile, opts: ResolveOptions = {})
   const precedences = resolveEdges(project.tasks, project.properties);
   const assignments = resolveAssignments(project);
   const resources = resolveResources(project);
+  const workUnits = resolveWorkUnits(opts.workUnits);
   return {
     source: project,
     defaultCalendarUniqueId: defaultCalendarUniqueId,
@@ -321,6 +339,7 @@ export function resolveCalendar(project: ProjectFile, opts: ResolveOptions = {})
     resources,
     assignments,
     precedences,
+    workUnits,
   };
 }
 
