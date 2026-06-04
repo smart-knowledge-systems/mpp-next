@@ -2,7 +2,7 @@
 // Topo-sort tasks by precedence, then for each task scan day-by-day from its
 // earliest precedence-feasible start until a window opens that satisfies all
 // resource caps. Single emission per call — restart/LDS/branch-and-bound are
-// SearchTransformers (§2.3).
+// SearchTransformers.
 
 import { RelationType } from "../../model/types.ts";
 import {
@@ -37,9 +37,20 @@ interface PerResourceCap {
   readonly window: { readonly fromDay: number; readonly toDay: number } | null;
 }
 
+// Compiled ConcurrentUnitsLimit: at most `max` distinct units may have active
+// (discipline-matching) work on any single working day. `taskUnits` maps a
+// task to the unit ids it opens; for discipline-scoped caps the map only
+// contains tasks assigned to the discipline resource (filter baked in here so
+// the day-loop stays a set union). Active-day occupancy — gaps free the slot.
+interface UnitCap {
+  readonly max: number;
+  readonly taskUnits: ReadonlyMap<number, ReadonlyArray<number>>;
+}
+
 interface Preprocessed {
   readonly edges: ReadonlyArray<PrecedenceEdge>;
   readonly caps: ReadonlyMap<number, ReadonlyArray<PerResourceCap>>;
+  readonly unitCaps: ReadonlyArray<UnitCap>;
   readonly deadlines: ReadonlyMap<number, number>;
   readonly releases: ReadonlyMap<number, number>;
   readonly explanations: ReadonlyArray<Explanation>;
@@ -51,6 +62,7 @@ function preprocess(
 ): Preprocessed {
   const edges: PrecedenceEdge[] = [...resolved.precedences];
   const caps = new Map<number, PerResourceCap[]>();
+  const unitCaps: UnitCap[] = [];
   const deadlines = new Map<number, number>();
   const releases = new Map<number, number>();
   const explanations: Explanation[] = [];
@@ -98,9 +110,35 @@ function preprocess(
       case "Release":
         loosenRelease(c.taskUniqueId, c.earliestStart);
         break;
-      case "LaydownSpaceCap":
-      case "AdjustmentTeamCap":
-      case "MultiBayPrecedence":
+      case "ConcurrentUnitsLimit": {
+        // Bake the discipline filter into the task→units map: a discipline-
+        // scoped cap only counts tasks assigned to that resource.
+        const disciplineTasks =
+          c.discipline === undefined
+            ? null
+            : new Set(
+                resolved.assignments
+                  .filter((a) => a.resourceUniqueId === c.discipline)
+                  .map((a) => a.taskUniqueId),
+              );
+        const taskUnits = new Map<number, number[]>();
+        for (const unitId of new Set(c.unitIds)) {
+          const unit = resolved.workUnits.get(unitId);
+          if (!unit) continue;
+          for (const taskId of unit.taskUniqueIds) {
+            if (disciplineTasks && !disciplineTasks.has(taskId)) continue;
+            let arr = taskUnits.get(taskId);
+            if (!arr) {
+              arr = [];
+              taskUnits.set(taskId, arr);
+            }
+            if (!arr.includes(unitId)) arr.push(unitId);
+          }
+        }
+        unitCaps.push({ max: c.max, taskUnits });
+        break;
+      }
+      case "UnitPrecedence":
       case "UnimodalProfile":
       case "ModeSelection":
       case "CrewFlowContinuity":
@@ -116,7 +154,7 @@ function preprocess(
     }
   }
 
-  return { edges, caps, deadlines, releases, explanations };
+  return { edges, caps, unitCaps, deadlines, releases, explanations };
 }
 
 function topoSort(
@@ -221,6 +259,10 @@ interface DayLoad {
 }
 type ResourceLoad = Map<number, Map<number, DayLoad>>;
 
+// Parallel to ResourceLoad, one entry per UnitCap: day → set of unit ids with
+// active (discipline-matching) work on that day.
+type UnitLoad = Map<number, Set<number>>;
+
 function isFeasible(
   taskUniqueId: number,
   startDay: number,
@@ -229,6 +271,8 @@ function isFeasible(
   cal: WorkingCalendar,
   caps: ReadonlyMap<number, ReadonlyArray<PerResourceCap>>,
   load: ResourceLoad,
+  unitCaps: ReadonlyArray<UnitCap>,
+  unitLoad: ReadonlyArray<UnitLoad>,
 ): boolean {
   for (let d = startDay; d < finishDay; d++) {
     if (cal.bits[d] !== 1) continue;
@@ -246,6 +290,17 @@ function isFeasible(
         if (cap.mode === "tasks" && newTaskCount > cap.max) return false;
       }
     }
+    // Unit WIP: would this task push the count of distinct open units past max?
+    for (let ci = 0; ci < unitCaps.length; ci++) {
+      const opensUnits = unitCaps[ci]!.taskUnits.get(taskUniqueId);
+      if (!opensUnits || opensUnits.length === 0) continue;
+      const open = unitLoad[ci]!.get(d);
+      let count = open?.size ?? 0;
+      for (const u of opensUnits) {
+        if (!open?.has(u)) count++;
+      }
+      if (count > unitCaps[ci]!.max) return false;
+    }
   }
   return true;
 }
@@ -257,6 +312,8 @@ function applyLoad(
   taskAssignments: ReadonlyArray<ResolvedAssignment>,
   cal: WorkingCalendar,
   load: ResourceLoad,
+  unitCaps: ReadonlyArray<UnitCap>,
+  unitLoad: ReadonlyArray<UnitLoad>,
 ): void {
   for (let d = startDay; d < finishDay; d++) {
     if (cal.bits[d] !== 1) continue;
@@ -274,6 +331,16 @@ function applyLoad(
       dayLoad.units += a.units;
       dayLoad.taskIds.add(taskUniqueId);
     }
+    for (let ci = 0; ci < unitCaps.length; ci++) {
+      const opensUnits = unitCaps[ci]!.taskUnits.get(taskUniqueId);
+      if (!opensUnits || opensUnits.length === 0) continue;
+      let openOnDay = unitLoad[ci]!.get(d);
+      if (!openOnDay) {
+        openOnDay = new Set();
+        unitLoad[ci]!.set(d, openOnDay);
+      }
+      for (const u of opensUnits) openOnDay.add(u);
+    }
   }
 }
 
@@ -287,9 +354,11 @@ function placeTask(
   scheduled: Map<number, ScheduledTask>,
   resolved: ResolvedProject,
   caps: ReadonlyMap<number, ReadonlyArray<PerResourceCap>>,
+  unitCaps: ReadonlyArray<UnitCap>,
   deadlines: ReadonlyMap<number, number>,
   releases: ReadonlyMap<number, number>,
   load: ResourceLoad,
+  unitLoad: ReadonlyArray<UnitLoad>,
   approximated: PrecedenceEdge[],
 ): PlaceResult {
   const cal = resolveWorkingCalendar(resolved, task.calendarUniqueId);
@@ -336,8 +405,20 @@ function placeTask(
         },
       };
     }
-    if (isFeasible(task.uniqueId, startDay, finishDay, taskAssignments, cal, caps, load)) {
-      applyLoad(task.uniqueId, startDay, finishDay, taskAssignments, cal, load);
+    if (
+      isFeasible(
+        task.uniqueId,
+        startDay,
+        finishDay,
+        taskAssignments,
+        cal,
+        caps,
+        load,
+        unitCaps,
+        unitLoad,
+      )
+    ) {
+      applyLoad(task.uniqueId, startDay, finishDay, taskAssignments, cal, load, unitCaps, unitLoad);
       scheduled.set(task.uniqueId, {
         uniqueId: task.uniqueId,
         startDay,
@@ -368,10 +449,14 @@ export const serialSGS: Search = {
     resolved: ResolvedProject,
     constraints: ReadonlyArray<Constraint>,
   ): AsyncGenerator<Schedule, Failure | undefined> {
-    const { edges, caps, deadlines, releases, explanations } = preprocess(resolved, constraints);
+    const { edges, caps, unitCaps, deadlines, releases, explanations } = preprocess(
+      resolved,
+      constraints,
+    );
     const order = topoSort(resolved.tasks, edges);
     const scheduled = new Map<number, ScheduledTask>();
     const load: ResourceLoad = new Map();
+    const unitLoad: UnitLoad[] = unitCaps.map(() => new Map());
     const placementExplanations: Explanation[] = [];
     const approximatedEdges: PrecedenceEdge[] = [];
     let placementFailed = false;
@@ -383,9 +468,11 @@ export const serialSGS: Search = {
         scheduled,
         resolved,
         caps,
+        unitCaps,
         deadlines,
         releases,
         load,
+        unitLoad,
         approximatedEdges,
       );
       if (explanation) {
@@ -434,6 +521,4 @@ export const serialSGS: Search = {
   },
 };
 
-// Reserved for callers that want to inspect deadlines/releases pulled out
-// during preprocessing.
 export type { DeadlineConstraint, ReleaseConstraint };

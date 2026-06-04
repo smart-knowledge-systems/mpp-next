@@ -278,7 +278,7 @@ describe("resolveCalendar — assignments, resources, source preservation", () =
     ]);
   });
 
-  test("D2: capacityPerDay = (maxUnits ?? 1) * (minutesPerDay/60)", () => {
+  test("capacityPerDay = (maxUnits ?? 1) * (minutesPerDay/60)", () => {
     // 480 min/day → 8 hours/day; maxUnits = 2 → capacity = 16.
     const project: ProjectFile = {
       ...makeProject([makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 })]),
@@ -308,7 +308,7 @@ describe("resolveCalendar — assignments, resources, source preservation", () =
   });
 });
 
-describe("resolveCalendar — D1 epoch", () => {
+describe("resolveCalendar — epoch", () => {
   test("opts.epoch wins over statusDate and task starts", () => {
     const explicitEpoch = new Date(2025, 11, 29); // Mon Dec 29 2025
     const project: ProjectFile = {
@@ -358,7 +358,7 @@ describe("resolveCalendar — D1 epoch", () => {
   });
 });
 
-describe("resolveCalendar — D4 multi-calendar map", () => {
+describe("resolveCalendar — multi-calendar map", () => {
   test("default calendar lives in the map under its uniqueId", () => {
     const c1 = monFriCalendar(7);
     const project = makeProject(
@@ -407,5 +407,35 @@ describe("resolveCalendar — error paths", () => {
     expect(() => resolveCalendar(makeProject([{ ...broken, uniqueId: null }]))).toThrow(
       /missing uniqueId/,
     );
+  });
+});
+
+describe("resolveCalendar — WorkUnit registry", () => {
+  const task = makeTask({ uniqueId: 1, start: MON_JAN_5, finish: SAT_JAN_10 });
+
+  test("resolves WorkUnits into a by-id registry", () => {
+    const resolved = resolveCalendar(makeProject([task]), {
+      workUnits: [
+        { id: 10, taskUniqueIds: [1] },
+        { id: 20, taskUniqueIds: [2] },
+      ],
+    });
+    expect(resolved.workUnits.size).toBe(2);
+    expect(resolved.workUnits.get(10)!.taskUniqueIds).toEqual([1]);
+  });
+
+  test("defaults to an empty registry when no workUnits are given", () => {
+    expect(resolveCalendar(makeProject([task])).workUnits.size).toBe(0);
+  });
+
+  test("rejects duplicate WorkUnit ids", () => {
+    expect(() =>
+      resolveCalendar(makeProject([task]), {
+        workUnits: [
+          { id: 10, taskUniqueIds: [1] },
+          { id: 10, taskUniqueIds: [2] },
+        ],
+      }),
+    ).toThrow(/duplicate WorkUnit id 10/);
   });
 });

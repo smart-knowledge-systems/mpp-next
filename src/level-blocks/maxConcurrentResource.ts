@@ -1,4 +1,4 @@
-// MaxConcurrentResource — first concrete v4 Block (§4.3).
+// MaxConcurrentResource — Constraint block.
 //
 // Caps the number of *tasks* that may simultaneously demand a named
 // resource on any working day. Counts tasks (boolean activity), not
@@ -6,7 +6,7 @@
 // greedy serial-SGS and the MiniZinc fragment both use task-count
 // semantics so the two backends agree on part-time assignments.
 //
-// MiniZinc target shape (matches the v1 compile contract): `active[t,d]`
+// MiniZinc target shape (matches the shared compile contract): `active[t,d]`
 // is the boolean activity matrix, `tasks_demanding[r]` the index set of
 // tasks demanding resource `r`, and `DAYS` the day-index set — all
 // supplied by the compilation harness, not the block.

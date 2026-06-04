@@ -1,0 +1,27 @@
+{
+  // Emit profile for the published package. The base tsconfig is bundler-mode
+  // with `noEmit` (Bun runs the source directly); this profile turns on JS +
+  // .d.ts emit and rewrites the source's explicit `.ts` import specifiers to
+  // `.js` so the output resolves under Node/bundler ESM resolution.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "module": "ESNext",
+    "outDir": "dist",
+    "rootDir": "src",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    // `allowImportingTsExtensions` (inherited, on) treats `.ts` specifiers as
+    // legal as-is and suppresses rewriting them in declaration output. Turn it
+    // off here so `rewriteRelativeImportExtensions` rewrites `.ts` → `.js` in
+    // both the .js and .d.ts emit.
+    "allowImportingTsExtensions": false,
+    "rewriteRelativeImportExtensions": true,
+    // Emit profile keeps its own buildinfo separate from the noEmit check run.
+    "incremental": false,
+    "tsBuildInfoFile": "node_modules/.cache/tsbuildinfo.build"
+  },
+  "include": ["src"],
+  "exclude": ["**/*.test.ts", "test", "src/fixture.ts"]
+}

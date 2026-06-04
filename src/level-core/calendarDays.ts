@@ -1,7 +1,7 @@
-// Working-day arithmetic for `@mpp-next/level-core`.
+// Working-day arithmetic for `@levelset/level-core`.
 // Hot-loop helpers — Date in / number out at the boundaries; no Dates
-// flowing through the leveling pipeline. Tracks spec §2.4 (R4) and S5
-// (Uint8Array bits + Int32Array prefix sum).
+// flowing through the leveling pipeline. Working days are stored as
+// Uint8Array bits with an Int32Array prefix sum.
 
 import type { Calendar } from "../model/Calendar.ts";
 
@@ -19,7 +19,7 @@ export function startOfLocalDay(d: Date): Date {
 // is treated as already-exclusive and left alone — including milestones
 // where start === finish === midnight.
 //
-// N3: documented semantic loss on import-export — the original 17:00
+// Documented semantic loss on import-export — the original 17:00
 // time-of-day does not survive a round trip.
 export function endOfLocalDayExclusive(d: Date): Date {
   if (

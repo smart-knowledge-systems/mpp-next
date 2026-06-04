@@ -1,5 +1,5 @@
 // ConcurrentResourceCost — Scoring block (soft companion to
-// `MaxConcurrentResource` per spec §4.3).
+// `MaxConcurrentResource`).
 //
 // Where `MaxConcurrentResource` is a *hard* cap on simultaneous activity,
 // this scorer prices each marginal concurrent worker on an *exponential*

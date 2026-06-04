@@ -1,5 +1,3 @@
-// Advanced subpath API — full reader/writer classes + container utilities
-
 export { MppReader, parseMppBuffer } from "./mpp/MppReader.ts";
 export { MspdiReader } from "./mspdi/MspdiReader.ts";
 export { MspdiWriter } from "./mspdi/MspdiWriter.ts";

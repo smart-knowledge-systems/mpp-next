@@ -1,7 +1,7 @@
-// Block contract for `@mpp-next/level-blocks` (N4 / §4.2).
+// Block contract for `@levelset/level-blocks`.
 //
 // A Block is the LCNC composition unit: a typed quadruple shared by the
-// visual editor (Pillar 3), the LLM agent (Pillar 4), and the compiler.
+// visual editor, the LLM agent, and the compiler.
 // Three families differ only in the output type `O`:
 //
 //   • Constraint blocks  — O = Constraint
@@ -22,7 +22,7 @@ export interface MiniZincFragment {
   readonly text: string;
 }
 
-/** Optional escape hatch (R1) for blocks where MiniZinc → FlatZinc loses
+/** Optional escape hatch for blocks where MiniZinc → FlatZinc loses
  *  structure the underlying CP-SAT model can express directly. */
 export interface CpSatFragment {
   readonly text: string;

@@ -1,5 +1,3 @@
-// Public API — convenience functions + re-exported types
-
 import { MppReader } from "./mpp/MppReader.ts";
 import { MspdiReader } from "./mspdi/MspdiReader.ts";
 import { MspdiWriter } from "./mspdi/MspdiWriter.ts";

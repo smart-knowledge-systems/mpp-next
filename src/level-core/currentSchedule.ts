@@ -1,4 +1,4 @@
-// D3: bridge for the no-search-yet case. Reads pre-existing dates from
+// Bridge for the no-search-yet case. Reads pre-existing dates from
 // `resolved.source` into a Schedule shape so round-trip identity holds for
 // projects that already have task dates pinned, and so partial pipelines
 // can hand a Schedule to materialize() without going through Search.

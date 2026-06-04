@@ -705,8 +705,7 @@ function workFromDouble(raw: number | null): Duration | null {
 }
 
 /**
- * Compute total slack as the minimum of start slack and finish slack,
- * matching MPXJ's behavior where total slack is derived from these two values.
+ * Compute total slack as the minimum of start slack and finish slack.
  */
 function computeTotalSlack(
   startSlackTenths: number | null,

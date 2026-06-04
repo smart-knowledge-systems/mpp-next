@@ -1,15 +1,15 @@
-// UnimodalDeviation — Scoring block (spec §4.3).
+// UnimodalDeviation — Scoring block.
 //
-// Quantitative companion to `UnimodalProfileConstraint` (R3). The constraint
+// Quantitative companion to `UnimodalProfileConstraint`. The constraint
 // is a hard shape rule (one ramp up, one ramp down); the scorer surfaces
 // "how far off" a profile is when the constraint isn't enforced — and is
 // also what a search transformer would tiebreak on when serialSGS can't
-// enforce the constraint directly (see plan §B1).
+// enforce the constraint directly.
 //
 // Algorithm: walk the per-resource weekly peak profile, locate the dominant
-// peak, and sum the magnitudes of dips before it and bumps after it. v4's
-// `checkUnimodal` (level-resources-v4.ts:820-852) returned ok/violations;
-// this scorer returns a deviation magnitude so it can drive search.
+// peak, and sum the magnitudes of dips before it and bumps after it. Unlike
+// a hard ok/violations check, this scorer returns a deviation magnitude so
+// it can drive search.
 //
 // MiniZinc compile contract: harness supplies `weekly_demand[r,w]` and
 // `WEEKS` (same as HiringLagPenalty). The emitted objective term is the

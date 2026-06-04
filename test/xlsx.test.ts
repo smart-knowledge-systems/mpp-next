@@ -108,18 +108,18 @@ describe("XlsxWriter", () => {
   test("writeWithGantt adds hidden data sheet, Gantt sheet, and chart XML", async () => {
     const project = makeMinimalProject();
     const buffer = await new XlsxWriter().writeWithGantt(project, {
-      title: "OHT Installation",
+      title: "Installation Plan",
       phases: [
         {
           label: "Phase 1",
-          bays: [
+          items: [
             { name: "MB204", start: "2027-09-01", finish: "2027-11-15" },
             { name: "MB205", start: "2027-10-01", finish: "2027-12-15" },
           ],
         },
         {
           label: "Phase 2",
-          bays: [{ name: "MB210", start: "2028-01-10", finish: "2028-02-28" }],
+          items: [{ name: "MB210", start: "2028-01-10", finish: "2028-02-28" }],
         },
       ],
     });

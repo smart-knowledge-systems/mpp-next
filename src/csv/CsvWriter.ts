@@ -27,7 +27,6 @@ export class CsvWriter {
 
     const headers = includeResources ? [...HEADERS_BASE, "Resources"] : [...HEADERS_BASE];
 
-    // Build resource lookup: uniqueId → name
     const resourceNames = new Map<number, string>();
     for (const resource of project.resources) {
       if (resource.uniqueId !== null && resource.name !== null) {
@@ -35,7 +34,6 @@ export class CsvWriter {
       }
     }
 
-    // Build task → resource names lookup via assignments
     const taskResources = new Map<number, string[]>();
     for (const assignment of project.assignments) {
       if (assignment.taskUniqueId === null || assignment.resourceUniqueId === null) continue;
