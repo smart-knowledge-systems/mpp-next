@@ -1,4 +1,4 @@
-// Schedule ──materialize──> ProjectFile (§9.2).
+// Schedule ──materialize──> ProjectFile.
 // Carries forward every source field except the ones the schedule decides
 // (start, finish, duration). Tasks that don't appear in `schedule.tasks`
 // pass through unchanged — useful when only a subset of tasks were
@@ -19,7 +19,7 @@ function workingDaysPerWeek(properties: ProjectProperties): number {
   return wpw / wpd;
 }
 
-// N2: re-emit duration in the original unit using properties-derived
+// Re-emit duration in the original unit using properties-derived
 // conversions; falls back to Days when the source had no unit.
 function workingDaysToDuration(
   workingDays: number,

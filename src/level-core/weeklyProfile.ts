@@ -5,9 +5,8 @@
 // per-resource demand. Lift it to level-core so every consumer agrees on
 // binning rules (Sunday-snapped, working-day-only, max-per-week).
 //
-// Sunday-snap origin: v3 (`snapToSunday`) binned weeks from the Sunday
-// on-or-before so adjacent runs share boundaries even if their range starts
-// differ by a few days. Preserved here as the default.
+// Weeks bin from the Sunday on-or-before each day so adjacent runs share
+// boundaries even if their range starts differ by a few days.
 
 import { dayToDate, resolveWorkingCalendar } from "./calendarDays.ts";
 import type { DayIndex, ResolvedProject, Schedule } from "./types.ts";

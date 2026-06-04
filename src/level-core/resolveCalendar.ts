@@ -1,4 +1,4 @@
-// Project ──resolveCalendar──> ResolvedProject (§9.2 / R4 / D1, D2, D4 / N1, N2).
+// Project ──resolveCalendar──> ResolvedProject.
 // Pure: in goes the user-facing `ProjectFile` with Date objects, out comes
 // the day-indexed working value the rest of the pipeline operates on.
 
@@ -46,7 +46,7 @@ function syntheticMonFriCalendar(): Calendar {
   };
 }
 
-/** D1: opts.epoch ?? properties.statusDate ?? min(task.start). Throws if none. */
+/** opts.epoch ?? properties.statusDate ?? min(task.start). Throws if none. */
 function pickEpoch(project: ProjectFile, opts: ResolveOptions): Date {
   if (opts.epoch) return startOfLocalDay(opts.epoch);
   if (project.properties.statusDate) return startOfLocalDay(project.properties.statusDate);
@@ -89,8 +89,8 @@ function pickHorizon(project: ProjectFile, epoch: Date, opts: ResolveOptions): n
   return Math.min(TEN_YEARS_DAYS, scaled);
 }
 
-// N2: working-days-per-week derived from properties. Hardcoded `5` was wrong
-// for any non-Mon–Fri calendar.
+// Working-days-per-week derived from properties so non-Mon–Fri calendars
+// are handled; the `5` below is only a degenerate fallback.
 function workingDaysPerWeek(properties: ProjectProperties): number {
   const wpd = properties.minutesPerDay;
   const wpw = properties.minutesPerWeek;
@@ -190,7 +190,7 @@ function resolveTask(
     outlineLevel: task.outlineLevel,
     summary: task.summary ?? false,
     milestone: task.milestone ?? false,
-    // N1: per-task calendar override would land here once the schema carries it.
+    // Per-task calendar override would land here once the schema carries it.
     calendarUniqueId: null,
   };
 }
@@ -225,7 +225,7 @@ function resolveAssignments(project: ProjectFile): ResolvedAssignment[] {
   return out;
 }
 
-// D2: capacityPerDay = (resource.maxUnits ?? 1) * (minutesPerDay / 60).
+// capacityPerDay = (resource.maxUnits ?? 1) * (minutesPerDay / 60).
 function resolveResources(project: ProjectFile): ResolvedResource[] {
   const minutesPerDay = project.properties.minutesPerDay;
   const out: ResolvedResource[] = [];
@@ -235,7 +235,7 @@ function resolveResources(project: ProjectFile): ResolvedResource[] {
     out.push({
       uniqueId: r.uniqueId,
       capacityPerDay: maxUnits * (minutesPerDay / 60),
-      // N1: per-resource calendar override would land here once the schema carries it.
+      // Per-resource calendar override would land here once the schema carries it.
       calendarUniqueId: null,
     });
   }
@@ -253,7 +253,7 @@ function validateTasks(project: ProjectFile): void {
   }
 }
 
-/** D4: build a WorkingCalendar per distinct calendarUniqueId referenced by
+/** Build a WorkingCalendar per distinct calendarUniqueId referenced by
  *  the project, plus any synthetic fallback. */
 function buildCalendarMap(
   project: ProjectFile,
@@ -306,7 +306,7 @@ export function resolveCalendar(project: ProjectFile, opts: ResolveOptions = {})
   );
   // The default calendar drives task/edge resolution. Per-task overrides
   // would consult `calendars.get(task.calendarUniqueId)` here once the
-  // schema carries that field (N1).
+  // schema carries that field.
   const defaultId = defaultCalendarUniqueId ?? SYNTHETIC_CAL_ID;
   const defaultWorking = calendars.get(defaultId)!;
   const tasks = project.tasks.map((t) => resolveTask(t, epoch, defaultWorking, project.properties));

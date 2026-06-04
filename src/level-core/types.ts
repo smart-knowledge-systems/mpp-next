@@ -1,5 +1,4 @@
 // Types & signatures for @levelset/level-core.
-// Tracks docs/dev-log/leveling-toolkit-spec-v4.md (§ refs in-line).
 
 import type { ProjectFile as Project } from "../model/Project.ts";
 import type { Calendar } from "../model/Calendar.ts";
@@ -8,7 +7,7 @@ import type { RelationType } from "../model/types.ts";
 export type { Project };
 
 // ─────────────────────────────────────────────────────────────────
-// Day-indexed working time (R4 / §2.4 / S5)
+// Day-indexed working time
 //
 // Bitmap is Uint8Array (1 byte/day vs ~9 for boolean[]) and carries a
 // precomputed prefix sum so "working days between A and B" is O(1) — the
@@ -27,15 +26,15 @@ export interface WorkingCalendar {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// ResolvedProject (R4 / §2.4)
+// ResolvedProject
 //
-// Resolved *structure*, not scheduling state (S1). ScheduledTask carries
+// Resolved *structure*, not scheduling state. ScheduledTask carries
 // startDay/finishDay; ResolvedTask intentionally does not. CPM bounds, if
 // computed, ride on a separate annotation produced by an explicit stage —
 // keeps "post-resolve" and "post-CPM" non-overlapping.
 //
-// `calendars` is a Map (D4) so per-task and per-resource calendar overrides
-// (N1) are first-class. Tasks/resources without an override fall back to
+// `calendars` is a Map so per-task and per-resource calendar overrides are
+// first-class. Tasks/resources without an override fall back to
 // `defaultCalendarUniqueId`.
 // ─────────────────────────────────────────────────────────────────
 
@@ -58,7 +57,7 @@ export interface ResolvedAssignment {
 
 export interface ResolvedResource {
   readonly uniqueId: number;
-  /** D2: (resource.maxUnits ?? 1) * (properties.minutesPerDay / 60). */
+  /** (resource.maxUnits ?? 1) * (properties.minutesPerDay / 60). */
   readonly capacityPerDay: number;
   /** Override calendar for this resource; falls back to default when null. */
   readonly calendarUniqueId: number | null;
@@ -82,7 +81,7 @@ export interface ResolvedProject {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// WorkUnit (§4.3 — the generalized "bay")
+// WorkUnit — the generalized "bay"
 //
 // The largest *independent* work package: the minimum complete increment
 // that can be put into production and handed over to the customer. A unit
@@ -113,13 +112,10 @@ export interface WorkUnit {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Constraint ADT (§4.2 / §4.3)
+// Constraint ADT
 //
 // Discriminated union; the ADT is the *interchange format* between blocks and
 // the search — blocks emit constraint variants, the search consumes them.
-// Diverged from the v4 block roster in §4.3: LaydownSpaceCap folded into
-// ConcurrentUnitsLimit, MultiBayPrecedence renamed UnitPrecedence (the spec
-// doc predates the WorkUnit generalization).
 // ─────────────────────────────────────────────────────────────────
 
 export type Constraint =
@@ -163,10 +159,9 @@ export interface PeakCapConstraint {
 // before opening more. `discipline` (a resourceUniqueId) narrows the count to
 // units with active work of that discipline — "≤ N bays in commissioning at
 // once" — leaving units idle in other disciplines uncounted. Omit `discipline`
-// for the whole-bay limit. Subsumes the former LaydownSpaceCap (whole-unit
-// staging); a pure crew-throughput limit is still `MaxConcurrentResource`.
-// Hard form; the soft
-// companion is the OpenUnitPenalty scorer.
+// for the whole-bay limit; a pure crew-throughput limit is still
+// `MaxConcurrentResource`. Hard form; the soft companion is the
+// OpenUnitPenalty scorer.
 export interface ConcurrentUnitsLimitConstraint {
   readonly kind: "ConcurrentUnitsLimit";
   readonly units: ReadonlyArray<WorkUnit>;
@@ -175,15 +170,15 @@ export interface ConcurrentUnitsLimitConstraint {
   readonly max: number;
 }
 
-// Unit-level precedence (generalizes the former MultiBayPrecedence): unit
-// `unitId` may not start until every unit in `afterUnitIds` has finished.
+// Unit-level precedence: unit `unitId` may not start until every unit in
+// `afterUnitIds` has finished.
 export interface UnitPrecedenceConstraint {
   readonly kind: "UnitPrecedence";
   readonly unitId: number;
   readonly afterUnitIds: ReadonlyArray<number>;
 }
 
-// R3: shape constraint, separate from the Smoothness *scorer*. A moment
+// Shape constraint, separate from the Smoothness *scorer*. A moment
 // minimizer will happily oscillate around a smooth mean — exactly what
 // a unimodal install profile forbids.
 export interface UnimodalProfileConstraint {
@@ -209,7 +204,7 @@ export interface TaskMode {
   }>;
 }
 
-// N5: LBMS-flavored — keeps a crew working a sequence of units without
+// LBMS-flavored — keeps a crew working a sequence of units without
 // idle gaps. The empirical premise of LBMS is that crew flow continuity
 // matters more than per-task makespan. `unitOrder` is the WorkUnit id
 // sequence the crew flows through.
@@ -238,9 +233,9 @@ export function assertNeverConstraint(c: never): never {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Scoring (§4.2)
+// Scoring
 //
-// R3: Smoothness (Burgess–Killebrew sum-of-squares moment) and the
+// Smoothness (Burgess–Killebrew sum-of-squares moment) and the
 // UnimodalDeviation companion to UnimodalProfile both live here as
 // Scorer instances, not Constraint variants.
 // ─────────────────────────────────────────────────────────────────
@@ -252,7 +247,7 @@ export interface Scorer<T = number> {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Failure & explanations (§2.2 / S2)
+// Failure & explanations
 //
 // Explanations describe *why* a search step rejected a partial schedule.
 // They belong on Failure, not on Schedule — a feasible schedule has no
@@ -292,7 +287,7 @@ export interface Schedule {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// ScheduleDiff (§3.2 — primitive for "branch, score, pick")
+// ScheduleDiff — primitive for "branch, score, pick"
 // ─────────────────────────────────────────────────────────────────
 
 export interface TaskDelta {
@@ -318,7 +313,7 @@ export interface ScheduleDiff {
 export declare function diffSchedules(a: Schedule, b: Schedule): ScheduleDiff;
 
 // ─────────────────────────────────────────────────────────────────
-// ScheduleStream (Pillar 2 / §3.2)
+// ScheduleStream — lazy enumeration of feasible schedules
 //
 // Lazy iterable of feasible Schedules. Async generators inside; uniform
 // interface across in-process greedy, MiniZinc subprocess, and remote
@@ -342,11 +337,12 @@ export interface ScheduleStream {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Search (MCP shape per §2.3, R2)
+// Search — monadic-constraint-programming shape
 //
-// Transformers (BB, LDS, restart, LNS) wrap a Search to produce a
-// Search — Schrijvers/Stuckey/Wadler in spirit. The generator returns a
-// Failure on exhaustion when no feasible schedule exists.
+// Transformers (BB, LDS, restart, LNS) wrap a Search to produce a Search,
+// in the spirit of Monadic Constraint Programming (Schrijvers, Stuckey,
+// Wadler; JFP 2009, doi:10.1017/S0956796809990086). The generator returns
+// a Failure on exhaustion when no feasible schedule exists.
 // ─────────────────────────────────────────────────────────────────
 
 export interface Search {
@@ -360,7 +356,7 @@ export interface Search {
 export type SearchTransformer = (inner: Search) => Search;
 
 // ─────────────────────────────────────────────────────────────────
-// Pipeline (§4.2 / S4 / D6)
+// Pipeline
 //
 // Two layers, easy to confuse:
 //
@@ -387,18 +383,18 @@ export function pipe(...stages: Stage[]): Stage {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Top-level entry points (§9.2)
+// Top-level entry points
 //
 //   Project ──resolveCalendar──> ResolvedProject ──run(pipeline)──>
 //     ScheduleStream ──pick──> Schedule ──materialize──> Project
 //
-// Round-trip fidelity invariant (test required, R4): for every working
-// day `d` in the resolved horizon and every WorkingCalendar in the map,
+// Round-trip fidelity invariant (test required): for every working day `d`
+// in the resolved horizon and every WorkingCalendar in the map,
 // `dateToDay(cal, dayToDate(cal, d)) === d`.
 // ─────────────────────────────────────────────────────────────────
 
 export interface ResolveOptions {
-  /** D1: opts.epoch ?? properties.statusDate ?? min(task.start). Throws if none. */
+  /** opts.epoch ?? properties.statusDate ?? min(task.start). Throws if none. */
   readonly epoch?: Date;
   /** Default = ceil(span(project) * 1.25), bounded by 10 years. */
   readonly horizonDays?: number;
@@ -406,7 +402,7 @@ export interface ResolveOptions {
 
 export declare function resolveCalendar(project: Project, opts?: ResolveOptions): ResolvedProject;
 
-/** D3: bridge for the no-search-yet case. Reads pre-existing dates from
+/** Bridge for the no-search-yet case. Reads pre-existing dates from
  *  `resolved.source` into Schedule shape so round-trip identity holds. */
 export declare function currentSchedule(resolved: ResolvedProject): Schedule;
 

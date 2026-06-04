@@ -1,6 +1,6 @@
-// HiringLagPenalty — Scoring block (plan §A1).
+// HiringLagPenalty — Scoring block.
 //
-// Models v3's training-lag economics (level-resources-v3.ts:561-617): each
+// Models training-lag economics: each
 // time the weekly headcount for a resource increases above the prior week's
 // level counts as a hire; each hire incurs `trainingWeeks × costPerCrewWeek`
 // because new staff are on payroll but not yet productive. The penalty is

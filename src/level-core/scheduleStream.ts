@@ -1,4 +1,4 @@
-// Lazy schedule enumeration (Pillar 2 / §3.2).
+// Lazy schedule enumeration.
 // Wraps an AsyncIterable<Schedule> so that filter/map/take/branch stay lazy
 // and only bestBy/paretoFrontier/collect actually drain.
 
@@ -125,8 +125,6 @@ function dominates(
   return strictlyBetter;
 }
 
-// Convenience constructor — wraps a one-shot AsyncGenerator factory in a
-// reusable AsyncIterable so multiple consumers each get a fresh iterator.
 export function streamFromFactory(factory: () => AsyncGenerator<Schedule>): ScheduleStream {
   return new ScheduleStreamImpl({
     [Symbol.asyncIterator]: factory,

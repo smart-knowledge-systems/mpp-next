@@ -1,10 +1,9 @@
-// ConcurrentUnitsLimit — Constraint block (§4.3).
+// ConcurrentUnitsLimit — Constraint block.
 //
 // A WIP cap on whole work units (the generalized "bay"). Where
 // `MaxConcurrentResource` caps crew/throughput (resource-hours), this caps how
 // many *units* have active work on any single day — pressuring the search to
-// finish open units before opening more. Subsumes the former LaydownSpaceCap
-// (whole-unit staging).
+// finish open units before opening more.
 //
 //   • whole-bay limit   — omit `discipline`: "≤ N bays open at once"
 //   • discipline limit   — set `discipline` to a resourceUniqueId: "≤ N bays

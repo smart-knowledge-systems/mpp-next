@@ -2,7 +2,7 @@
 // Topo-sort tasks by precedence, then for each task scan day-by-day from its
 // earliest precedence-feasible start until a window opens that satisfies all
 // resource caps. Single emission per call — restart/LDS/branch-and-bound are
-// SearchTransformers (§2.3).
+// SearchTransformers.
 
 import { RelationType } from "../../model/types.ts";
 import {
@@ -519,6 +519,4 @@ export const serialSGS: Search = {
   },
 };
 
-// Reserved for callers that want to inspect deadlines/releases pulled out
-// during preprocessing.
 export type { DeadlineConstraint, ReleaseConstraint };
