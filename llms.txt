@@ -15,7 +15,7 @@ The unifying data type is `ProjectFile`: a plain object holding `tasks`, `resour
 - `Task` — a unit of work with a `uniqueId`, `duration` (a `Duration` instance), dates, and `predecessors` (precedence edges).
 - `Resource` — a person, crew, equipment, or cost item, referenced by `uniqueId`.
 - `Assignment` — links a task to a resource with `units` (how many of that resource the task demands while active).
-- A **`WorkUnit`** is the largest independent work package — the minimum complete increment that can be handed over, grouping a set of `taskUniqueIds`. Work units are what the WIP-limiting constraints and scorers operate on.
+- A **`WorkUnit`** is the largest independent work package — the minimum complete increment that can be handed over, grouping a set of `taskUniqueIds`. Work units are what the WIP-limiting constraints and scorers operate on. They are authored once via `resolveCalendar`'s `workUnits` option, which resolves them into a by-id registry on `ResolvedProject` (`workUnits: Map<number, WorkUnit>`, duplicate ids rejected); constraints and scorers then reference them by id.
 
 ## Leveling pipeline
 
@@ -37,17 +37,20 @@ Minimal end-to-end example:
 import { resolveCalendar, serialSGS, streamFromFactory, materialize } from "levelset/leveling";
 import type { Constraint, Scorer } from "levelset/leveling";
 
-const resolved = resolveCalendar(project);
+const resolved = resolveCalendar(project, {
+  // Work units are defined once here; constraints/scorers reference them by id.
+  workUnits: [
+    { id: 10, taskUniqueIds: [1, 2, 3] },
+    { id: 20, taskUniqueIds: [4, 5, 6] },
+  ],
+});
 
 const constraints: Constraint[] = [
   { kind: "MaxConcurrentResource", resourceUniqueId: 100, max: 3 },
   {
     kind: "ConcurrentUnitsLimit",
     max: 2, // at most 2 work units open at once (a hard WIP cap)
-    units: [
-      { id: 10, taskUniqueIds: [1, 2, 3] },
-      { id: 20, taskUniqueIds: [4, 5, 6] },
-    ],
+    unitIds: [10, 20], // references the units resolved above
   },
 ];
 
